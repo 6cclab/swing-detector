@@ -1,4 +1,8 @@
+import logging
+import os
 from contextlib import asynccontextmanager
+
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,10 +12,15 @@ from app.db.base import Base
 from app.db.session import engine
 from app.models import Swing, User  # noqa: F401 — ensure models are registered
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.warning(f"create_all skipped (tables may already exist): {e}")
     yield
 
 
