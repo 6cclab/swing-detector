@@ -114,3 +114,5 @@ jobs:
             --grpc-web
             --server argocd.apps.dev-01.6cclab.dev
             --auth-token ${{ env.ARGO_TOKEN }}
+            --retry-limit 3
+            --retry-backoff-duration 10s
