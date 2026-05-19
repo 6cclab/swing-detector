@@ -25,6 +25,15 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="progress"
+        options={{
+          title: "Progress",
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="line-chart" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="record"
         options={{
           title: "Record",
@@ -38,15 +47,6 @@ export default function TabLayout() {
         options={{
           title: "History",
           tabBarIcon: ({ color }) => <TabIcon name="list" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{
-          title: "Progress",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="line-chart" color={color} />
-          ),
         }}
       />
       <Tabs.Screen

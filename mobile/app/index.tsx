@@ -15,7 +15,7 @@ export default function Index() {
   }
 
   if (user) {
-    return <Redirect href="/(tabs)/record" />;
+    return <Redirect href="/(tabs)/progress" />;
   }
 
   return <Redirect href="/login" />;

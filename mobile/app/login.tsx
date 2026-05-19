@@ -36,7 +36,7 @@ export default function LoginScreen() {
       } else {
         await login(email, password);
       }
-      router.replace("/(tabs)/record");
+      router.replace("/(tabs)/progress");
     } catch (e: unknown) {
       Alert.alert("Error", e instanceof Error ? e.message : "Auth failed");
     } finally {
