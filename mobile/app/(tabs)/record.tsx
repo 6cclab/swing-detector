@@ -1,6 +1,7 @@
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,11 +10,14 @@ import {
   Text,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { useAuth } from "@/src/lib/auth-context";
 import { apiUpload } from "@/src/lib/api";
 import { colors } from "@/src/lib/theme";
 import type { SwingUploadResponse } from "@/src/types/swing";
+
+type CameraFacing = "back" | "front";
 
 export default function RecordScreen() {
   const { user } = useAuth();
@@ -22,6 +26,15 @@ export default function RecordScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [recording, setRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [facing, setFacing] = useState<CameraFacing>("back");
+  const [active, setActive] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setActive(true);
+      return () => setActive(false);
+    }, [])
+  );
 
   if (!permission) return <View style={styles.container} />;
 
@@ -55,6 +68,10 @@ export default function RecordScreen() {
     cameraRef.current?.stopRecording();
   };
 
+  const toggleCamera = () => {
+    setFacing((prev) => (prev === "back" ? "front" : "back"));
+  };
+
   const uploadVideo = async (uri: string) => {
     setUploading(true);
     try {
@@ -83,16 +100,27 @@ export default function RecordScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing="back"
-        mode="video"
-      />
+      {active ? (
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing={facing}
+          mode="video"
+        />
+      ) : (
+        <View style={styles.camera} />
+      )}
+
       <View style={styles.overlay}>
         <Text style={styles.hint}>
           Position camera face-on or down-the-line
         </Text>
+      </View>
+
+      <View style={styles.topControls}>
+        <Pressable style={styles.flipButton} onPress={toggleCamera}>
+          <FontAwesome name="refresh" size={20} color="#fff" />
+        </Pressable>
       </View>
 
       <View style={styles.controls}>
@@ -142,6 +170,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     overflow: "hidden",
+  },
+  topControls: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+  },
+  flipButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   controls: {
     position: "absolute",
