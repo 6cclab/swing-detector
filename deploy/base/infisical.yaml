@@ -1,6 +1,0 @@
-apiVersion: secrets.6cclab.dev/v1alpha1
-kind: HomelabSecret
-metadata:
-  name: swing-detector-secrets
-spec:
-  projectId: d5b5e6bf-5c59-4ea3-ae8f-7d72ac65438d
