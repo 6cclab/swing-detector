@@ -26,7 +26,6 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/health"
     spec:
-      serviceAccountName: infisical-auth
       containers:
         - name: api
           image: ghcr.io/6cclab/swing-detector-api:latest
