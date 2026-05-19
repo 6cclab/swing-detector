@@ -16,7 +16,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libglib2.0-0 curl && \
     rm -rf /var/lib/apt/lists/* && \
-    useradd -r -s /bin/false appuser
+    useradd -r -u 10001 -s /bin/false appuser
 
 COPY --from=builder /install /usr/local
 
@@ -30,7 +30,7 @@ COPY . .
 RUN mkdir -p /app/uploads /app/checkpoints && \
     chown -R appuser:appuser /app/uploads /app/checkpoints
 
-USER appuser
+USER 10001
 
 EXPOSE 8000
 
