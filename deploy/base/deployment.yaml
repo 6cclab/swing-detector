@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swing-detector-api
+  labels:
+    app.kubernetes.io/name: swing-detector-api
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: swing-detector-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: swing-detector-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/health"
+    spec:
+      serviceAccountName: infisical-auth
+      containers:
+        - name: api
+          image: ghcr.io/6cclab/swing-detector-api:latest
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: swing-detector-secrets
+          env:
+            - name: PORT
+              value: "8000"
+            - name: VIDEO_STORAGE_PATH
+              value: /app/uploads
+            - name: MODEL_CHECKPOINT_DIR
+              value: /app/checkpoints
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            failureThreshold: 30
+            periodSeconds: 2
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+            - name: checkpoints
+              mountPath: /app/checkpoints
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "30"]
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: swing-detector-uploads
+        - name: checkpoints
+          persistentVolumeClaim:
+            claimName: swing-detector-checkpoints
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: swing-detector-uploads
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: swing-detector-checkpoints
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+uploads/
+*.mp4
+*.mov
+*.task
+backend/models/
+backend/checkpoints/
+backend/data/
+node_modules/
+.expo/
