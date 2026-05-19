@@ -10,7 +10,7 @@ spec:
       serviceAccountRef:
         name: infisical-auth
       secretsScope:
-        projectId: ""  # set in env overlay or before deploy
+        projectId: d5b5e6bf-5c59-4ea3-ae8f-7d72ac65438d
         envSlug: dev
         secretsPath: /
         recursive: true
