@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,9 +27,11 @@ import type { SwingAnalysisResult } from "@/src/types/analysis";
 function DrillCard({
   drill,
   recommended,
+  onStart,
 }: {
   drill: (typeof DRILLS)[number];
   recommended?: boolean;
+  onStart: () => void;
 }) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -137,7 +140,7 @@ function DrillCard({
             {drill.description}
           </Text>
 
-          <PrimaryButton title="Start drill" onPress={() => {}} />
+          <PrimaryButton title="Start drill" onPress={onStart} />
         </View>
       )}
     </Card>
@@ -146,6 +149,7 @@ function DrillCard({
 
 export default function DrillsScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [hasSwings, setHasSwings] = useState(false);
   const [latestDate, setLatestDate] = useState<string>("");
@@ -239,7 +243,7 @@ export default function DrillsScreen() {
           </View>
           <View style={styles.drillList}>
             {recommended.map((drill) => (
-              <DrillCard key={drill.id} drill={drill} recommended />
+              <DrillCard key={drill.id} drill={drill} recommended onStart={() => router.push(`/drill/${drill.id}`)} />
             ))}
           </View>
         </View>
@@ -254,7 +258,7 @@ export default function DrillsScreen() {
         </View>
         <View style={styles.drillList}>
           {library.map((drill) => (
-            <DrillCard key={drill.id} drill={drill} />
+            <DrillCard key={drill.id} drill={drill} onStart={() => router.push(`/drill/${drill.id}`)} />
           ))}
         </View>
       </View>

@@ -31,6 +31,12 @@ export interface CoachingTip {
   body: string;
 }
 
+export interface DrillStep {
+  title: string;
+  instruction: string;
+  tip?: string;
+}
+
 export interface Drill {
   id: string;
   title: string;
@@ -39,6 +45,7 @@ export interface Drill {
   duration: string;
   level: 'Beginner' | 'Intermediate' | 'Advanced';
   description: string;
+  steps: DrillStep[];
 }
 
 export interface Swing {
@@ -135,6 +142,12 @@ export const DRILLS: Drill[] = [
     level: 'Beginner',
     description:
       'Stand with your back against a wall during practice swings. Your glutes should maintain contact through the downswing to prevent early extension.',
+    steps: [
+      { title: 'Setup', instruction: 'Stand with your back and glutes touching a wall. Take your normal address position with a club.', tip: 'Your head doesn\'t need to touch the wall.' },
+      { title: 'Backswing', instruction: 'Make a slow backswing. Your trail hip should stay in contact with the wall throughout.', tip: 'Focus on rotating, not sliding away.' },
+      { title: 'Downswing', instruction: 'Start the downswing. Keep your glutes pressed against the wall — this prevents early extension.', tip: 'If your hips come off the wall, you\'re thrusting toward the ball.' },
+      { title: 'Through impact', instruction: 'Swing through to a finish position. Your lead hip should rotate open while maintaining wall contact.', tip: 'Repeat 10-15 times, then hit balls without the wall.' },
+    ],
   },
   {
     id: 'pump-drill',
@@ -145,6 +158,12 @@ export const DRILLS: Drill[] = [
     level: 'Intermediate',
     description:
       'Take the club to the top, pause, then pump halfway down and back to the top three times before completing the swing. Builds wrist retention.',
+    steps: [
+      { title: 'Address', instruction: 'Take your normal setup with a mid-iron. Focus on relaxed grip pressure — about 4 out of 10.', tip: 'Light grip helps you feel the club head.' },
+      { title: 'To the top', instruction: 'Make a full backswing to the top. Pause for a full second. Feel the wrist hinge — your lead wrist should be flat.', tip: 'Check: can you feel weight in your trail foot?' },
+      { title: 'Pump down', instruction: 'Start the downswing halfway, then pull the club back to the top. Repeat 3 times. Maintain wrist angle each time.', tip: 'The angle should not change during the pump.' },
+      { title: 'Release', instruction: 'On the 4th downswing, complete the full swing through impact. The wrist hinge releases naturally at the ball.', tip: 'Do 5 sets. This builds lag without forcing it.' },
+    ],
   },
   {
     id: 'step-through',
@@ -155,6 +174,13 @@ export const DRILLS: Drill[] = [
     level: 'Beginner',
     description:
       'Start with feet together. Step toward the target with your lead foot as you begin the downswing. Promotes proper hip rotation and weight transfer.',
+    steps: [
+      { title: 'Feet together', instruction: 'Start with both feet touching, ball positioned in the center. Hold a mid-iron.', tip: 'This will feel unstable — that\'s the point.' },
+      { title: 'Small backswing', instruction: 'Make a three-quarter backswing. As you reach the top, lift your lead foot slightly off the ground.', tip: 'Keep your balance centered.' },
+      { title: 'Step and swing', instruction: 'Step your lead foot toward the target as you begin the downswing. Plant it firmly before impact.', tip: 'The step triggers proper weight transfer.' },
+      { title: 'Follow through', instruction: 'Finish with 90% of weight on your lead foot. Hold the finish for 3 seconds.', tip: 'If you fall off balance, slow down the tempo.' },
+      { title: 'Progress', instruction: 'Start with half swings, then work up to full speed. Hit 20 balls this way.', tip: 'Film yourself to check your weight shift.' },
+    ],
   },
   {
     id: 'tee-gate',
@@ -165,6 +191,12 @@ export const DRILLS: Drill[] = [
     level: 'Intermediate',
     description:
       'Place two tees just wider than your clubhead on the target line. Swing through without hitting either tee to groove a square path.',
+    steps: [
+      { title: 'Build the gate', instruction: 'Place two tees in the ground about 1 inch wider than your clubhead, just in front of the ball on the target line.', tip: 'Use bright tees so you can see them clearly.' },
+      { title: 'Slow swings', instruction: 'Make slow half-swings, focusing on swinging the club straight through the gate without touching either tee.', tip: 'If you hit the outside tee, your path is too in-to-out.' },
+      { title: 'Add speed', instruction: 'Gradually increase to three-quarter speed. Keep the club tracking through the gate cleanly.', tip: 'Hitting the inside tee means you\'re coming over the top.' },
+      { title: 'Full swings', instruction: 'Work up to full speed. Hit 15-20 balls through the gate. Track your success rate.', tip: 'Aim for 80%+ clean passes before narrowing the gate.' },
+    ],
   },
   {
     id: '3-to-1-tempo',
@@ -175,6 +207,12 @@ export const DRILLS: Drill[] = [
     level: 'Beginner',
     description:
       "Count '1-2-3' on the backswing, '1' on the downswing. Use a metronome app at 72 BPM for the backswing beat.",
+    steps: [
+      { title: 'Set your tempo', instruction: 'Open a metronome app and set it to 72 BPM. Each beat is one count.', tip: 'Tour average is roughly a 3:1 ratio.' },
+      { title: 'Count the backswing', instruction: 'Say "one-two-three" as you take the club back. Each count matches one metronome beat. Reach the top on "three".', tip: 'Don\'t rush — most amateurs go too fast.' },
+      { title: 'Transition', instruction: 'On the next beat, say "one" and start the downswing. This single count covers the entire downswing through impact.', tip: 'The transition should feel smooth, not jerky.' },
+      { title: 'Repeat', instruction: 'Hit 20 balls with the metronome. Focus on matching the rhythm, not on where the ball goes.', tip: 'Once it feels natural, try without the metronome.' },
+    ],
   },
   {
     id: 'feet-together',
@@ -185,6 +223,12 @@ export const DRILLS: Drill[] = [
     level: 'Advanced',
     description:
       'Hit balls with your feet touching. Forces you to maintain balance and proper sequencing without relying on lateral movement.',
+    steps: [
+      { title: 'Stance', instruction: 'Place your feet together, touching. Tee the ball up slightly. Use a 7 or 8 iron.', tip: 'This removes lateral movement from your swing.' },
+      { title: 'Half swings', instruction: 'Start with smooth half swings. Focus on rotating your body around a fixed center point.', tip: 'If you lose balance, you\'re using too much lateral motion.' },
+      { title: 'Three-quarter', instruction: 'Increase to three-quarter swings. Maintain balance throughout — you should be able to hold your finish.', tip: 'The ball won\'t go as far — that\'s fine.' },
+      { title: 'Full swings', instruction: 'Work up to full swings. Hit 15 balls. If you can hold your finish on 12+, your sequencing is solid.', tip: 'This is one of the best drills for advanced players.' },
+    ],
   },
 ];
 
