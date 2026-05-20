@@ -132,3 +132,59 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 
 	return c.JSON(user.ToResponse())
 }
+
+type updatePreferencesRequest struct {
+	Notifications *bool   `json:"notifications"`
+	CameraAngle   *string `json:"camera_angle"`
+	Units         *string `json:"units"`
+	Name          *string `json:"name"`
+	Handedness    *string `json:"handedness"`
+}
+
+func (h *AuthHandler) UpdateMe(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+
+	var body updatePreferencesRequest
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	var user models.User
+	if err := h.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	if body.Notifications != nil {
+		user.Notifications = *body.Notifications
+	}
+	if body.CameraAngle != nil {
+		allowed := map[string]bool{"face-on": true, "down-the-line": true}
+		if !allowed[*body.CameraAngle] {
+			return c.Status(400).JSON(fiber.Map{"error": "camera_angle must be 'face-on' or 'down-the-line'"})
+		}
+		user.CameraAngle = *body.CameraAngle
+	}
+	if body.Units != nil {
+		allowed := map[string]bool{"yards": true, "meters": true}
+		if !allowed[*body.Units] {
+			return c.Status(400).JSON(fiber.Map{"error": "units must be 'yards' or 'meters'"})
+		}
+		user.Units = *body.Units
+	}
+	if body.Name != nil && *body.Name != "" {
+		user.Name = *body.Name
+	}
+	if body.Handedness != nil {
+		allowed := map[string]bool{"right": true, "left": true}
+		if !allowed[*body.Handedness] {
+			return c.Status(400).JSON(fiber.Map{"error": "handedness must be 'right' or 'left'"})
+		}
+		user.Handedness = *body.Handedness
+	}
+
+	if err := h.db.Save(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update preferences"})
+	}
+
+	return c.JSON(user.ToResponse())
+}

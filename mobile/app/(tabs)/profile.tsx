@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -17,32 +18,50 @@ function getInitials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
-function SettingsRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
-  const theme = useTheme();
-  return (
-    <View
-      style={[
-        styles.settingsRow,
-        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
-      ]}
-    >
-      <Text style={[styles.settingsLabel, { color: theme.text }]}>{label}</Text>
-      <View style={styles.settingsRight}>
-        <Text style={[styles.settingsValue, { color: theme.textMuted }]}>{value}</Text>
-        <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
-      </View>
-    </View>
-  );
-}
-
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, updatePreferences } = useAuth();
   const router = useRouter();
+  const [updating, setUpdating] = useState<string | null>(null);
 
   const displayName = user?.name || "User";
   const displayEmail = user?.email || "";
   const handedness = user?.handedness === "left" ? "Left" : "Right";
+  const notifications = user?.notifications ?? true;
+  const cameraAngle = user?.camera_angle || "face-on";
+  const units = user?.units || "yards";
+
+  const toggleNotifications = async () => {
+    setUpdating("notifications");
+    try {
+      await updatePreferences({ notifications: !notifications });
+    } catch (e) {
+      Alert.alert("Error", "Failed to update notification setting");
+    }
+    setUpdating(null);
+  };
+
+  const cycleCameraAngle = async () => {
+    const next = cameraAngle === "face-on" ? "down-the-line" : "face-on";
+    setUpdating("camera_angle");
+    try {
+      await updatePreferences({ camera_angle: next });
+    } catch (e) {
+      Alert.alert("Error", "Failed to update camera angle");
+    }
+    setUpdating(null);
+  };
+
+  const cycleUnits = async () => {
+    const next = units === "yards" ? "meters" : "yards";
+    setUpdating("units");
+    try {
+      await updatePreferences({ units: next });
+    } catch (e) {
+      Alert.alert("Error", "Failed to update units");
+    }
+    setUpdating(null);
+  };
 
   const handleSignOut = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out?", [
@@ -57,6 +76,9 @@ export default function ProfileScreen() {
       },
     ]);
   };
+
+  const cameraLabel = cameraAngle === "face-on" ? "Face-on" : "Down-the-line";
+  const unitsLabel = units === "yards" ? "Yards · °" : "Meters · °";
 
   return (
     <ScrollView
@@ -103,10 +125,55 @@ export default function ProfileScreen() {
 
       {/* Settings */}
       <Card padded={false}>
-        <SettingsRow label="Notifications" value="On" />
-        <SettingsRow label="Default camera angle" value="Face-on" />
-        <SettingsRow label="Units" value="Yards · °" />
-        <SettingsRow label="Help & support" value="" last />
+        {/* Notifications — toggle switch */}
+        <View style={[styles.settingsRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}>
+          <Text style={[styles.settingsLabel, { color: theme.text }]}>Notifications</Text>
+          <Switch
+            value={notifications}
+            onValueChange={toggleNotifications}
+            trackColor={{ false: theme.surfaceHi, true: `${theme.accent}80` }}
+            thumbColor={notifications ? theme.accent : theme.textDim}
+            disabled={updating === "notifications"}
+          />
+        </View>
+
+        {/* Camera angle — tap to cycle */}
+        <Pressable
+          style={[styles.settingsRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}
+          onPress={cycleCameraAngle}
+          disabled={updating === "camera_angle"}
+        >
+          <Text style={[styles.settingsLabel, { color: theme.text }]}>Default camera angle</Text>
+          <View style={styles.settingsRight}>
+            <Text style={[styles.settingsValue, { color: theme.textMuted, opacity: updating === "camera_angle" ? 0.4 : 1 }]}>
+              {cameraLabel}
+            </Text>
+            <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
+          </View>
+        </Pressable>
+
+        {/* Units — tap to cycle */}
+        <Pressable
+          style={[styles.settingsRow, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}
+          onPress={cycleUnits}
+          disabled={updating === "units"}
+        >
+          <Text style={[styles.settingsLabel, { color: theme.text }]}>Units</Text>
+          <View style={styles.settingsRight}>
+            <Text style={[styles.settingsValue, { color: theme.textMuted, opacity: updating === "units" ? 0.4 : 1 }]}>
+              {unitsLabel}
+            </Text>
+            <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
+          </View>
+        </Pressable>
+
+        {/* Help — static */}
+        <View style={styles.settingsRow}>
+          <Text style={[styles.settingsLabel, { color: theme.text }]}>Help & support</Text>
+          <View style={styles.settingsRight}>
+            <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
+          </View>
+        </View>
       </Card>
 
       {/* Sign Out */}

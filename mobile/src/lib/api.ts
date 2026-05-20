@@ -34,6 +34,23 @@ export async function apiPost<T>(
   return res.json();
 }
 
+export async function apiPatch<T>(
+  path: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PATCH",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
 export async function apiUpload<T>(
   path: string,
   fileUri: string,

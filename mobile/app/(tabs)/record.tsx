@@ -143,7 +143,7 @@ export default function RecordScreen() {
       <View style={styles.hintWrap}>
         <View style={styles.hintPill}>
           <Text style={styles.hintText}>
-            Position camera face-on or down-the-line
+            Position camera {user?.camera_angle === "down-the-line" ? "down-the-line" : "face-on"}
           </Text>
         </View>
       </View>

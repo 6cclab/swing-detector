@@ -57,6 +57,7 @@ func main() {
 	auth.Post("/register", authH.Register)
 	auth.Post("/login", authH.Login)
 	auth.Get("/me", authH.Me)
+	auth.Patch("/me", authH.UpdateMe)
 
 	swings := api.Group("/swings")
 	swings.Post("/upload", swingH.Upload)

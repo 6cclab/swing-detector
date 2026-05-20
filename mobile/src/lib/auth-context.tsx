@@ -1,12 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiPost } from "./api";
+import { apiPatch, apiPost } from "./api";
 import { getToken, removeToken, setToken } from "./auth";
 
-type User = {
+export type User = {
   id: string;
   email: string;
   name: string;
   handedness: string;
+  notifications: boolean;
+  camera_angle: string;
+  units: string;
 };
 
 type AuthState = {
@@ -20,6 +23,7 @@ type AuthState = {
     handedness?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
+  updatePreferences: (prefs: Partial<Pick<User, "notifications" | "camera_angle" | "units" | "name" | "handedness">>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -77,8 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const updatePreferences = async (prefs: Partial<Pick<User, "notifications" | "camera_angle" | "units" | "name" | "handedness">>) => {
+    const updated = await apiPatch<User>("/api/auth/me", prefs);
+    setUser(updated);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updatePreferences }}>
       {children}
     </AuthContext.Provider>
   );
