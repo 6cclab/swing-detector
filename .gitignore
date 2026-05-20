@@ -13,6 +13,10 @@ uploads/
 backend/models/
 backend/checkpoints/
 backend/data/
+worker/models/
+worker/checkpoints/
+worker/data/
+*.pt
 node_modules/
 .expo/
 assessments.ts
