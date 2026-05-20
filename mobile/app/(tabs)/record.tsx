@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   hintWrap: {
     position: "absolute",
-    top: 68,
+    top: 112,
     left: 0,
     right: 0,
     alignItems: "center",
