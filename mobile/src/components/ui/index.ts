@@ -1,32 +1,5 @@
 export { AngleGauge } from "./AngleGauge";
-export {
-  DRILL_ILLUSTRATIONS,
-  WallSetup,
-  WallBackswing,
-  WallDownswing,
-  WallImpact,
-  PumpAddress,
-  PumpTop,
-  PumpDown,
-  PumpRelease,
-  StepStance,
-  StepBackswing,
-  StepSwing,
-  StepFinish,
-  StepProgress,
-  GateSetup,
-  GateSlow,
-  GateSpeed,
-  GateFull,
-  TempoMetronome,
-  TempoBackswing,
-  TempoTransition,
-  TempoRepeat,
-  FeetStance,
-  FeetHalf,
-  FeetThreeQuarter,
-  FeetFull,
-} from "./DrillIllustrations";
+export { DRILL_ILLUSTRATIONS } from "./DrillIllustrations";
 export { Card } from "./Card";
 export {
   IconArrowDown,
