@@ -15,3 +15,4 @@ backend/checkpoints/
 backend/data/
 node_modules/
 .expo/
+assessments.ts

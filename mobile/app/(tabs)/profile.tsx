@@ -1,101 +1,293 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import React from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
+import { Card, IconChevRight, IconLogout } from "@/src/components/ui";
+import { USER } from "@/src/data/mock";
 import { useAuth } from "@/src/lib/auth-context";
-import { colors } from "@/src/lib/theme";
+import { typography, useTheme } from "@/src/lib/theme";
 
-export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 
+function formatJoined(d: Date) {
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+interface SettingsRowProps {
+  label: string;
+  value: string;
+  last?: boolean;
+}
+
+function SettingsRow({ label, value, last }: SettingsRowProps) {
+  const theme = useTheme();
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0)?.toUpperCase() ?? "?"}
-          </Text>
-        </View>
-        <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Handedness</Text>
-          <Text style={styles.infoValue}>
-            {user?.handedness === "right" ? "Right-handed" : "Left-handed"}
-          </Text>
-        </View>
+    <View
+      style={[
+        styles.settingsRow,
+        !last && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: theme.border,
+        },
+      ]}
+    >
+      <Text style={[styles.settingsLabel, { color: theme.text }]}>{label}</Text>
+      <View style={styles.settingsRight}>
+        <Text style={[styles.settingsValue, { color: theme.textMuted }]}>
+          {value}
+        </Text>
+        <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
       </View>
-
-      <Pressable style={styles.logoutButton} onPress={logout}>
-        <Text style={styles.logoutText}>Sign Out</Text>
-      </Pressable>
     </View>
   );
 }
 
+export default function ProfileScreen() {
+  const theme = useTheme();
+  const { logout } = useAuth();
+  const router = useRouter();
+
+  const user = USER;
+
+  const handleSignOut = () => {
+    Alert.alert("Sign out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        style: "destructive",
+        onPress: async () => {
+          await logout();
+          router.replace("/login");
+        },
+      },
+    ]);
+  };
+
+  return (
+    <ScrollView
+      style={[styles.screen, { backgroundColor: theme.bg }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.screenTitle, { color: theme.text }]}>Profile</Text>
+      </View>
+
+      {/* Hero Card */}
+      <Card style={styles.heroCard}>
+        <View
+          style={[
+            styles.avatar,
+            {
+              backgroundColor: `${theme.accent}28`,
+              borderColor: `${theme.accent}40`,
+            },
+          ]}
+        >
+          <Text style={[styles.avatarText, { color: theme.accent }]}>
+            {getInitials(user.name)}
+          </Text>
+        </View>
+        <View style={styles.heroText}>
+          <Text style={[styles.heroName, { color: theme.text }]}>{user.name}</Text>
+          <Text
+            style={[
+              styles.heroEmail,
+              { color: theme.textMuted, fontFamily: typography.fontMono },
+            ]}
+          >
+            {user.email}
+          </Text>
+        </View>
+      </Card>
+
+      {/* Stats Card */}
+      <Card>
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCell, { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: theme.border }]}>
+            <Text
+              style={[
+                styles.statKicker,
+                { color: theme.textDim, letterSpacing: 0.16 * 10 },
+              ]}
+            >
+              HANDEDNESS
+            </Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {user.handedness === "right" ? "Right" : "Left"}
+            </Text>
+          </View>
+          <View style={[styles.statCell, { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: theme.border }]}>
+            <Text
+              style={[
+                styles.statKicker,
+                { color: theme.textDim, letterSpacing: 0.16 * 10 },
+              ]}
+            >
+              HANDICAP
+            </Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {user.handicap}
+            </Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text
+              style={[
+                styles.statKicker,
+                { color: theme.textDim, letterSpacing: 0.16 * 10 },
+              ]}
+            >
+              JOINED
+            </Text>
+            <Text style={[styles.statValue, { color: theme.text }]}>
+              {formatJoined(user.joined)}
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Settings List */}
+      <Card padded={false}>
+        <SettingsRow label="Notifications" value="On" />
+        <SettingsRow label="Default camera angle" value="Face-on" />
+        <SettingsRow label="Units" value="Yards · °" />
+        <SettingsRow label="Help & support" value="" last />
+      </Card>
+
+      {/* Sign out */}
+      <Pressable
+        style={[
+          styles.signOutButton,
+          {
+            borderColor: theme.borderStrong,
+            backgroundColor: theme.surface,
+          },
+        ]}
+        onPress={handleSignOut}
+      >
+        <IconLogout size={18} color={theme.severity.bad} strokeWidth={2} />
+        <Text style={[styles.signOutText, { color: theme.severity.bad }]}>
+          Sign out
+        </Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: 16,
-    gap: 24,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 24,
+  content: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+    gap: 12,
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 8,
+  },
+  screenTitle: {
+    fontSize: typography.screenTitle,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+  },
+  heroCard: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginTop: 20,
+    gap: 14,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1.5,
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "center",
   },
   avatarText: {
-    color: "#fff",
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  name: {
-    color: colors.text,
     fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  heroText: {
+    flex: 1,
+    gap: 3,
+  },
+  heroName: {
+    fontSize: 19,
     fontWeight: "600",
   },
-  email: {
-    color: colors.textSecondary,
-    fontSize: 14,
+  heroEmail: {
+    fontSize: 12,
   },
-  infoRow: {
+  statsGrid: {
     flexDirection: "row",
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+    gap: 5,
+  },
+  statKicker: {
+    fontFamily: typography.fontMono,
+    fontSize: 10,
+    textTransform: "uppercase",
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  settingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceLight,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  infoLabel: {
-    color: colors.textSecondary,
-    fontSize: 14,
-  },
-  infoValue: {
-    color: colors.text,
-    fontSize: 14,
+  settingsLabel: {
+    fontSize: typography.body,
     fontWeight: "500",
   },
-  logoutButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
+  settingsRight: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
-  logoutText: {
-    color: colors.error,
-    fontSize: 16,
+  settingsValue: {
+    fontSize: 14,
+  },
+  signOutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  signOutText: {
+    fontSize: 15,
     fontWeight: "600",
   },
 });

@@ -1,4 +1,3 @@
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -15,7 +14,6 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-    ...FontAwesome.font,
   });
 
   useEffect(() => {
@@ -35,8 +33,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="swing/[id]" options={{ title: "Swing Analysis" }} />
-          <Stack.Screen name="swing/compare" options={{ title: "Phase Comparison" }} />
+          <Stack.Screen name="swing/[id]" options={{ headerShown: false }} />
         </Stack>
       </ThemeProvider>
     </AuthProvider>

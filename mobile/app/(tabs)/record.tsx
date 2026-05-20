@@ -1,4 +1,3 @@
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -12,10 +11,9 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { IconFlip } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth-context";
 import { apiUpload } from "@/src/lib/api";
-import { colors } from "@/src/lib/theme";
-import type { SwingUploadResponse } from "@/src/types/swing";
 
 type CameraFacing = "back" | "front";
 
@@ -36,14 +34,18 @@ export default function RecordScreen() {
     }, [])
   );
 
-  if (!permission) return <View style={styles.container} />;
+  if (!permission) {
+    return <View style={styles.container} />;
+  }
 
   if (!permission.granted) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.text}>Camera permission is required</Text>
-        <Pressable style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>
+          Camera permission is required to record your swing
+        </Text>
+        <Pressable style={styles.grantButton} onPress={requestPermission}>
+          <Text style={styles.grantButtonText}>Grant Permission</Text>
         </Pressable>
       </View>
     );
@@ -57,7 +59,7 @@ export default function RecordScreen() {
       if (video?.uri) {
         await uploadVideo(video.uri);
       }
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "Failed to record video");
     } finally {
       setRecording(false);
@@ -75,7 +77,7 @@ export default function RecordScreen() {
   const uploadVideo = async (uri: string) => {
     setUploading(true);
     try {
-      const res = await apiUpload<SwingUploadResponse>(
+      const res = await apiUpload<{ swing_id: string }>(
         "/api/swings/upload",
         uri,
         "swing.mp4",
@@ -83,7 +85,10 @@ export default function RecordScreen() {
       );
       router.push(`/swing/${res.swing_id}`);
     } catch (e: unknown) {
-      Alert.alert("Upload Failed", e instanceof Error ? e.message : "Unknown error");
+      Alert.alert(
+        "Upload Failed",
+        e instanceof Error ? e.message : "Unknown error"
+      );
     } finally {
       setUploading(false);
     }
@@ -91,15 +96,17 @@ export default function RecordScreen() {
 
   if (uploading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.text}>Uploading swing...</Text>
+      <View style={styles.uploadingContainer}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.uploadingText}>Uploading swing...</Text>
+        <Text style={styles.uploadingHint}>This may take a moment</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Camera */}
       {active ? (
         <CameraView
           ref={cameraRef}
@@ -111,26 +118,33 @@ export default function RecordScreen() {
         <View style={styles.camera} />
       )}
 
-      <View style={styles.overlay}>
-        <Text style={styles.hint}>
-          Position camera face-on or down-the-line
-        </Text>
-      </View>
-
+      {/* Flip button - top right */}
       <View style={styles.topControls}>
         <Pressable style={styles.flipButton} onPress={toggleCamera}>
-          <FontAwesome name="refresh" size={20} color="#fff" />
+          <IconFlip size={20} color="#fff" strokeWidth={1.8} />
         </Pressable>
       </View>
 
+      {/* Hint pill - top center */}
+      <View style={styles.hintWrap}>
+        <View style={styles.hintPill}>
+          <Text style={styles.hintText}>
+            Position camera face-on or down-the-line
+          </Text>
+        </View>
+      </View>
+
+      {/* Record controls - bottom */}
       <View style={styles.controls}>
         <Pressable
-          style={[styles.recordButton, recording && styles.recordingActive]}
+          style={[
+            styles.recordOuter,
+            recording && styles.recordOuterActive,
+          ]}
           onPress={recording ? stopRecording : startRecording}
+          hitSlop={12}
         >
-          <View
-            style={recording ? styles.stopIcon : styles.recordIcon}
-          />
+          <View style={recording ? styles.stopInner : styles.recordInner} />
         </Pressable>
         <Text style={styles.recordLabel}>
           {recording ? "Tap to stop" : "Tap to record"}
@@ -143,33 +157,54 @@ export default function RecordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  center: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 16,
+    backgroundColor: "#000",
   },
   camera: {
     flex: 1,
   },
-  overlay: {
-    position: "absolute",
-    top: 60,
-    left: 0,
-    right: 0,
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+    justifyContent: "center",
     alignItems: "center",
+    gap: 20,
+    paddingHorizontal: 40,
   },
-  hint: {
+  permissionText: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  grantButton: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  grantButtonText: {
     color: "#fff",
-    fontSize: 14,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    overflow: "hidden",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  uploadingContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  uploadingText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "500",
+    marginTop: 8,
+  },
+  uploadingHint: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 13,
   },
   topControls: {
     position: "absolute",
@@ -177,63 +212,71 @@ const styles = StyleSheet.create({
     right: 20,
   },
   flipButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.2)",
   },
-  controls: {
+  hintWrap: {
     position: "absolute",
-    bottom: 60,
+    top: 68,
     left: 0,
     right: 0,
     alignItems: "center",
-    gap: 12,
   },
-  recordButton: {
+  hintPill: {
+    backgroundColor: "rgba(0,0,0,0.52)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  hintText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  controls: {
+    position: "absolute",
+    bottom: 56,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    gap: 14,
+  },
+  recordOuter: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    justifyContent: "center",
-    alignItems: "center",
     borderWidth: 4,
     borderColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent",
   },
-  recordingActive: {
-    borderColor: colors.error,
+  recordOuterActive: {
+    borderColor: "rgba(255,255,255,0.6)",
   },
-  recordIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.error,
+  recordInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#ef4444",
   },
-  stopIcon: {
+  stopInner: {
     width: 28,
     height: 28,
     borderRadius: 4,
-    backgroundColor: colors.error,
+    backgroundColor: "#ef4444",
   },
   recordLabel: {
     color: "#fff",
     fontSize: 14,
-  },
-  text: {
-    color: colors.text,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 });
