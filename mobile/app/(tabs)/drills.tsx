@@ -1,21 +1,27 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
 import {
   Card,
   IconChevDown,
   IconClock,
+  IconDrills,
   IconTarget,
   PrimaryButton,
 } from "@/src/components/ui";
-import { DRILLS, SWINGS, recommendDrills } from "@/src/data/mock";
+import { DRILLS } from "@/src/data/mock";
+import { apiGet } from "@/src/lib/api";
 import { typography, useTheme } from "@/src/lib/theme";
+import type { SwingListResponse } from "@/src/types/swing";
+import type { SwingAnalysisResult } from "@/src/types/analysis";
 
 function DrillCard({
   drill,
@@ -140,11 +146,59 @@ function DrillCard({
 
 export default function DrillsScreen() {
   const theme = useTheme();
+  const [loading, setLoading] = useState(true);
+  const [hasSwings, setHasSwings] = useState(false);
+  const [latestDate, setLatestDate] = useState<string>("");
+  const [recommended, setRecommended] = useState<typeof DRILLS>([]);
 
-  const latestSwing = SWINGS[0];
-  const recommended = latestSwing
-    ? recommendDrills(latestSwing.metrics)
-    : DRILLS.slice(0, 3);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await apiGet<SwingListResponse>("/api/swings?page=1&page_size=1");
+          const completedSwings = res.items.filter((s) => s.status === "complete");
+          if (completedSwings.length > 0) {
+            setHasSwings(true);
+            const d = new Date(completedSwings[0].created_at);
+            setLatestDate(`${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]} ${d.getDate()}`);
+
+            // Fetch latest analysis to derive recommendations
+            try {
+              const analysis = await apiGet<SwingAnalysisResult>(`/api/swings/${completedSwings[0].id}`);
+              if ("phases_detected" in analysis && !cancelled) {
+                // Find impact phase and derive weak metrics
+                const impact = analysis.phases_detected.find((p) => p.phase === "impact");
+                if (impact) {
+                  // Pick drills targeting metrics with worst feedback
+                  const badFeedback = impact.angle_feedback
+                    .filter((fb) => fb.severity !== "good")
+                    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+                  const picked = DRILLS.slice(0, Math.min(3, badFeedback.length || 3));
+                  setRecommended(picked);
+                } else {
+                  setRecommended(DRILLS.slice(0, 3));
+                }
+              }
+            } catch {
+              setRecommended(DRILLS.slice(0, 3));
+            }
+          }
+        } catch { /* ignore */ }
+        if (!cancelled) setLoading(false);
+      })();
+      return () => { cancelled = true; };
+    }, [])
+  );
+
+  if (loading) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: theme.bg }]}>
+        <ActivityIndicator size="large" color={theme.accent} />
+      </View>
+    );
+  }
 
   const recommendedIds = new Set(recommended.map((d) => d.id));
   const library = DRILLS.filter((d) => !recommendedIds.has(d.id));
@@ -155,7 +209,6 @@ export default function DrillsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.screenTitle, { color: theme.text }]}>Drills</Text>
         <Text style={[styles.kicker, { color: theme.textMuted }]}>
@@ -163,42 +216,42 @@ export default function DrillsScreen() {
         </Text>
       </View>
 
-      {/* Recommended Section */}
-      <View>
-        <View style={styles.sectionHeader}>
-          <Text
-            style={[
-              styles.monoKicker,
-              { color: theme.textMuted, letterSpacing: 0.15 * 11 },
-            ]}
-          >
-            RECOMMENDED · {recommended.length}
-          </Text>
-          <Text style={[styles.dateTag, { color: theme.accent }]}>
-            FROM MAY 18
+      {!hasSwings && (
+        <View style={styles.emptyInner}>
+          <IconDrills size={48} color={theme.textDim} strokeWidth={1.2} />
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>No drills recommended yet</Text>
+          <Text style={[styles.emptyBody, { color: theme.textMuted }]}>
+            Record a swing — we'll match drills to your weakest fundamentals
           </Text>
         </View>
+      )}
 
-        <View style={styles.drillList}>
-          {recommended.map((drill) => (
-            <DrillCard key={drill.id} drill={drill} recommended />
-          ))}
+      {/* Recommended */}
+      {recommended.length > 0 && (
+        <View>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.monoKicker, { color: theme.textMuted, letterSpacing: 0.15 * 11 }]}>
+              RECOMMENDED · {recommended.length}
+            </Text>
+            {latestDate ? (
+              <Text style={[styles.dateTag, { color: theme.accent }]}>FROM {latestDate}</Text>
+            ) : null}
+          </View>
+          <View style={styles.drillList}>
+            {recommended.map((drill) => (
+              <DrillCard key={drill.id} drill={drill} recommended />
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
-      {/* Library Section */}
+      {/* Library */}
       <View>
         <View style={styles.sectionHeader}>
-          <Text
-            style={[
-              styles.monoKicker,
-              { color: theme.textMuted, letterSpacing: 0.15 * 11 },
-            ]}
-          >
+          <Text style={[styles.monoKicker, { color: theme.textMuted, letterSpacing: 0.15 * 11 }]}>
             LIBRARY · {DRILLS.length} DRILLS
           </Text>
         </View>
-
         <View style={styles.drillList}>
           {library.map((drill) => (
             <DrillCard key={drill.id} drill={drill} />
@@ -332,5 +385,24 @@ const styles = StyleSheet.create({
   description: {
     fontSize: typography.body,
     lineHeight: 21,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyInner: {
+    alignItems: "center",
+    gap: 10,
+    marginTop: 40,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  emptyBody: {
+    fontSize: 14,
+    textAlign: "center",
+    paddingHorizontal: 40,
   },
 });
