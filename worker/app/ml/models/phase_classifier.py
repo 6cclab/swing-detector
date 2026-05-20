@@ -85,8 +85,11 @@ def phase_loss(
     lengths: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Cross-entropy loss ignoring padded frames (label == -1)."""
-    # logits: (B, T, C), targets: (B, T)
-    b, t, c = logits.shape
+    # logits: (B, T_out, C), targets: (B, T_target)
+    # T_out may differ from T_target after pack/unpack — align them
+    b, t_out, c = logits.shape
+    targets = targets[:, :t_out]
+
     logits_flat = logits.reshape(-1, c)
     targets_flat = targets.reshape(-1)
 

@@ -34,6 +34,8 @@ def compute_metrics(model, val_loader, device):
             logits = model(sequences, lengths)
             preds = logits.argmax(dim=-1)
 
+            # Align lengths after pack/unpack
+            labels = labels[:, :preds.shape[1]]
             mask = labels != -1
             correct += (preds[mask] == labels[mask]).sum().item()
             total += mask.sum().item()

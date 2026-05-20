@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -74,6 +75,16 @@ export default function RecordScreen() {
     setFacing((prev) => (prev === "back" ? "front" : "back"));
   };
 
+  const pickFromLibrary = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["videos"],
+      quality: 1,
+    });
+    if (!result.canceled && result.assets[0]) {
+      await uploadVideo(result.assets[0].uri);
+    }
+  };
+
   const uploadVideo = async (uri: string) => {
     setUploading(true);
     try {
@@ -118,9 +129,12 @@ export default function RecordScreen() {
         <View style={styles.camera} />
       )}
 
-      {/* Flip button - top right */}
+      {/* Top controls */}
       <View style={styles.topControls}>
-        <Pressable style={styles.flipButton} onPress={toggleCamera}>
+        <Pressable style={styles.topButton} onPress={pickFromLibrary}>
+          <Text style={styles.libraryText}>Library</Text>
+        </Pressable>
+        <Pressable style={styles.topButton} onPress={toggleCamera}>
           <IconFlip size={20} color="#fff" strokeWidth={1.8} />
         </Pressable>
       </View>
@@ -209,17 +223,26 @@ const styles = StyleSheet.create({
   topControls: {
     position: "absolute",
     top: 60,
+    left: 20,
     right: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  flipButton: {
-    width: 40,
+  topButton: {
     height: 40,
+    minWidth: 40,
     borderRadius: 20,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 14,
     borderWidth: 0.5,
     borderColor: "rgba(255,255,255,0.2)",
+  },
+  libraryText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
   },
   hintWrap: {
     position: "absolute",

@@ -110,6 +110,9 @@ class SwingDataset(Dataset):
         for f in sorted(self.data_dir.glob("*.json")):
             with open(f) as fp:
                 sample = json.load(fp)
+                # Skip samples with empty pose sequences
+                if not sample.get("pose_sequence"):
+                    continue
                 sample["_file"] = str(f)
                 self.samples.append(sample)
 
