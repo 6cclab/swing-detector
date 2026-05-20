@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -7,15 +7,18 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /migrate ./cmd/migrate
 
 FROM alpine:3.21
 
 RUN apk add --no-cache curl && \
     adduser -D -u 10001 appuser
 
-USER 10001
-
 COPY --from=builder /server /server
+COPY --from=builder /migrate /migrate
+COPY --from=builder /app/migrations /migrations
+
+USER 10001
 
 EXPOSE 8000
 
