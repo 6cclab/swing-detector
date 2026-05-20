@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,8 +16,8 @@ import {
   IconTarget,
   PrimaryButton,
 } from "@/src/components/ui";
-import { DRILL_ILLUSTRATIONS } from "@/src/components/ui/DrillIllustrations";
 import { DRILLS } from "@/src/data/mock";
+import { DRILL_IMAGES } from "@/src/data/drillImages";
 import { typography, useTheme } from "@/src/lib/theme";
 
 export default function DrillFlowScreen() {
@@ -88,10 +89,14 @@ export default function DrillFlowScreen() {
         {/* Step title */}
         <Text style={[styles.stepTitle, { color: theme.text }]}>{step.title}</Text>
 
-        {/* Illustration */}
-        {DRILL_ILLUSTRATIONS[drill.id]?.[currentStep] && (
-          <View style={[styles.illustrationWrap, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
-            {DRILL_ILLUSTRATIONS[drill.id][currentStep]({ size: 180, color: theme.accent })}
+        {/* Photo */}
+        {DRILL_IMAGES[drill.id]?.[currentStep] && (
+          <View style={[styles.imageWrap, { borderColor: theme.border }]}>
+            <Image
+              source={DRILL_IMAGES[drill.id][currentStep]}
+              style={styles.drillImage}
+              resizeMode="cover"
+            />
           </View>
         )}
 
@@ -179,7 +184,8 @@ const styles = StyleSheet.create({
   stepBadge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   stepBadgeText: { fontFamily: "SpaceMono", fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   stepTitle: { fontSize: 28, fontWeight: "700", letterSpacing: -0.5 },
-  illustrationWrap: { alignItems: "center", justifyContent: "center", paddingVertical: 20, borderRadius: 16, borderWidth: 0.5 },
+  imageWrap: { borderRadius: 16, borderWidth: 0.5, overflow: "hidden" },
+  drillImage: { width: "100%", height: 220, borderRadius: 16 },
   instructionCard: { gap: 0 },
   instruction: { fontSize: 17, lineHeight: 26, fontWeight: "400" },
   tipCard: { flexDirection: "row", gap: 12, padding: 14, borderRadius: 14, borderWidth: 0.5 },

@@ -45,161 +45,163 @@ const STROKE = { strokeLinecap: "round" as const, strokeLinejoin: "round" as con
 // WALL DRILL — side view, golfer faces LEFT, wall on RIGHT
 // ---------------------------------------------------------------------------
 
-/** Side view: address position. Hip/glutes near wall on the right. */
+/** Side view: address position. Butt touching wall on the right. */
 export function WallSetup({ size = 200, color }: IllustrationProps) {
+  // Golfer faces LEFT. Wall on RIGHT. Butt (hip) touches wall.
+  // Figure fills most of the frame: head ~y=30, feet ~y=180
+  const W = 155; // wall x
+  const G = 180; // ground y
+  // Hip at wall
+  const hip = { x: W - 4, y: 110 };
+  // Spine tilts forward ~35° from hip
+  const neck = { x: hip.x - 35, y: 55 };
+  const head = { x: neck.x - 2, y: 38 };
+  const shoulder = { x: neck.x + 5, y: 70 };
+  // Hands in front, below shoulder
+  const hands = { x: shoulder.x - 25, y: 118 };
+  // Legs: slight knee flex
+  const lKnee = { x: hip.x - 20, y: 148 };
+  const lFoot = { x: hip.x - 28, y: G };
+  const tKnee = { x: hip.x + 5, y: 148 };
+  const tFoot = { x: hip.x + 8, y: G };
+  const ball = { x: hands.x - 8, y: G };
+
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      {/* Wall — right side */}
-      <Rect x={148} y={18} width={14} height={158} fill={color} opacity={0.12} rx={2} />
-      <Line x1={148} y1={18} x2={148} y2={176} stroke={color} strokeWidth={2.5} {...STROKE} />
-
+      {/* Wall */}
+      <Rect x={W} y={10} width={16} height={G - 10} fill={color} opacity={0.1} rx={2} />
+      <Line x1={W} y1={10} x2={W} y2={G} stroke={color} strokeWidth={2.5} {...STROKE} />
       {/* Ground */}
-      <Line x1={18} y1={175} x2={175} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
+      <Line x1={15} y1={G} x2={185} y2={G} stroke={color} strokeWidth={2} {...STROKE} />
 
-      {/* HEAD */}
-      <Circle cx={82} cy={53} r={10} stroke={color} strokeWidth={2} fill="none" />
+      {/* Head */}
+      <Circle cx={head.x} cy={head.y} r={12} stroke={color} strokeWidth={2.5} fill="none" />
+      {/* Spine */}
+      <Line x1={neck.x} y1={neck.y} x2={hip.x} y2={hip.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      {/* Shoulder → hands (arm) */}
+      <Line x1={shoulder.x} y1={shoulder.y} x2={hands.x} y2={hands.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      {/* Club */}
+      <Line x1={hands.x} y1={hands.y} x2={ball.x} y2={ball.y} stroke={color} strokeWidth={2} {...STROKE} />
+      {/* Lead leg */}
+      <Line x1={hip.x} y1={hip.y} x2={lKnee.x} y2={lKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={lKnee.x} y1={lKnee.y} x2={lFoot.x} y2={lFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      {/* Trail leg */}
+      <Line x1={hip.x} y1={hip.y} x2={tKnee.x} y2={tKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={tKnee.x} y1={tKnee.y} x2={tFoot.x} y2={tFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      {/* Ball */}
+      <Circle cx={ball.x} cy={ball.y} r={4} fill={color} />
 
-      {/* SPINE — forward tilt ~30° */}
-      <Line x1={82} y1={63} x2={97} y2={113} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* SHOULDER point (≈30% down spine from neck) */}
-      {/* Approx (87, 78) — arms hang from here */}
-
-      {/* LEAD ARM + hands — angled down-forward to club */}
-      <Line x1={87} y1={78} x2={76} y2={122} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* CLUB — hands to ball */}
-      <Line x1={76} y1={122} x2={68} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* HIP POINT (97,113) — close to wall */}
-      {/* Dashed line: hip to wall (shows glutes near wall) */}
-      <Line x1={97} y1={113} x2={148} y2={113} stroke={color} strokeWidth={1.5} strokeDasharray="3 2" />
-
-      {/* LEAD LEG: hip → knee → foot */}
-      <Line x1={97} y1={113} x2={87} y2={147} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={87} y1={147} x2={82} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* TRAIL LEG: hip → knee → foot */}
-      <Line x1={97} y1={113} x2={112} y2={147} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={112} y1={147} x2={118} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* BALL */}
-      <Circle cx={66} cy={175} r={4} fill={color} />
+      {/* Contact indicator: hip touching wall */}
+      <Line x1={hip.x} y1={hip.y} x2={W} y2={hip.y} stroke={color} strokeWidth={1.5} strokeDasharray="4 3" />
+      <Circle cx={W} cy={hip.y} r={3} fill={color} opacity={0.4} />
     </Svg>
   );
 }
 
-/** Side view: backswing — trail hip still near wall, club raised. */
+/** Backswing — hip still touching wall, club raised behind. */
 export function WallBackswing({ size = 200, color }: IllustrationProps) {
+  const W = 155; const G = 180;
+  const hip = { x: W - 4, y: 110 };
+  const neck = { x: hip.x - 30, y: 55 };
+  const head = { x: neck.x + 5, y: 38 };
+  const shoulder = { x: neck.x + 5, y: 70 };
+  // Arms raised behind for backswing
+  const hands = { x: shoulder.x + 15, y: 42 };
+  const clubEnd = { x: hands.x + 25, y: 35 };
+  const lKnee = { x: hip.x - 20, y: 148 };
+  const lFoot = { x: hip.x - 28, y: G };
+  const tKnee = { x: hip.x + 5, y: 148 };
+  const tFoot = { x: hip.x + 8, y: G };
+
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      {/* Wall */}
-      <Rect x={148} y={18} width={14} height={158} fill={color} opacity={0.12} rx={2} />
-      <Line x1={148} y1={18} x2={148} y2={176} stroke={color} strokeWidth={2.5} {...STROKE} />
-
-      {/* Ground */}
-      <Line x1={18} y1={175} x2={175} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* HEAD — slightly turned into backswing */}
-      <Circle cx={86} cy={55} r={10} stroke={color} strokeWidth={2} fill="none" />
-
-      {/* SPINE — same forward tilt */}
-      <Line x1={86} y1={65} x2={100} y2={115} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* ARMS — raised into backswing (lead arm up-left) */}
-      <Line x1={91} y1={80} x2={65} y2={58} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* CLUB at top — pointing roughly up and behind */}
-      <Line x1={65} y1={58} x2={45} y2={40} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* HIP still near wall */}
-      <Line x1={100} y1={115} x2={148} y2={115} stroke={color} strokeWidth={1.5} strokeDasharray="3 2" />
-
-      {/* LEAD LEG */}
-      <Line x1={100} y1={115} x2={89} y2={148} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={89} y1={148} x2={84} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* TRAIL LEG */}
-      <Line x1={100} y1={115} x2={114} y2={148} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={114} y1={148} x2={120} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
+      <Rect x={W} y={10} width={16} height={G - 10} fill={color} opacity={0.1} rx={2} />
+      <Line x1={W} y1={10} x2={W} y2={G} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={15} y1={G} x2={185} y2={G} stroke={color} strokeWidth={2} {...STROKE} />
+      <Circle cx={head.x} cy={head.y} r={12} stroke={color} strokeWidth={2.5} fill="none" />
+      <Line x1={neck.x} y1={neck.y} x2={hip.x} y2={hip.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={shoulder.x} y1={shoulder.y} x2={hands.x} y2={hands.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={hands.x} y1={hands.y} x2={clubEnd.x} y2={clubEnd.y} stroke={color} strokeWidth={2} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={lKnee.x} y2={lKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={lKnee.x} y1={lKnee.y} x2={lFoot.x} y2={lFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={tKnee.x} y2={tKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={tKnee.x} y1={tKnee.y} x2={tFoot.x} y2={tFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      {/* Hip touching wall */}
+      <Line x1={hip.x} y1={hip.y} x2={W} y2={hip.y} stroke={color} strokeWidth={1.5} strokeDasharray="4 3" />
+      <Circle cx={W} cy={hip.y} r={3} fill={color} opacity={0.4} />
     </Svg>
   );
 }
 
-/** Downswing — glutes still against wall, hips beginning to rotate open. */
+/** Downswing — glutes still against wall, hips starting to rotate. */
 export function WallDownswing({ size = 200, color }: IllustrationProps) {
+  const W = 155; const G = 180;
+  const hip = { x: W - 4, y: 110 };
+  const neck = { x: hip.x - 33, y: 55 };
+  const head = { x: neck.x, y: 38 };
+  const shoulder = { x: neck.x + 5, y: 70 };
+  const hands = { x: shoulder.x - 15, y: 100 };
+  const clubEnd = { x: hands.x - 20, y: 140 };
+  const lKnee = { x: hip.x - 22, y: 148 };
+  const lFoot = { x: hip.x - 30, y: G };
+  const tKnee = { x: hip.x + 5, y: 148 };
+  const tFoot = { x: hip.x + 8, y: G };
+
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      {/* Wall */}
-      <Rect x={148} y={18} width={14} height={158} fill={color} opacity={0.12} rx={2} />
-      <Line x1={148} y1={18} x2={148} y2={176} stroke={color} strokeWidth={2.5} {...STROKE} />
-
-      {/* Ground */}
-      <Line x1={18} y1={175} x2={175} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* HEAD */}
-      <Circle cx={84} cy={54} r={10} stroke={color} strokeWidth={2} fill="none" />
-
-      {/* SPINE */}
-      <Line x1={84} y1={64} x2={99} y2={114} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* ARMS — mid downswing, club coming down */}
-      <Line x1={89} y1={79} x2={72} y2={98} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={72} y1={98} x2={55} y2={118} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* Hip rotation arrow (hips starting to open) */}
-      <Path d="M 110 107 Q 118 97 125 106" stroke={color} strokeWidth={1.5} fill="none" {...STROKE} />
-      <Path d="M 122 103 L 125 108 L 120 110" stroke={color} strokeWidth={1.5} fill="none" {...STROKE} />
-
-      {/* HIP to wall contact */}
-      <Line x1={99} y1={114} x2={148} y2={114} stroke={color} strokeWidth={1.5} strokeDasharray="3 2" />
-
-      {/* LEAD LEG */}
-      <Line x1={99} y1={114} x2={88} y2={147} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={88} y1={147} x2={83} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* TRAIL LEG */}
-      <Line x1={99} y1={114} x2={113} y2={147} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={113} y1={147} x2={119} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
+      <Rect x={W} y={10} width={16} height={G - 10} fill={color} opacity={0.1} rx={2} />
+      <Line x1={W} y1={10} x2={W} y2={G} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={15} y1={G} x2={185} y2={G} stroke={color} strokeWidth={2} {...STROKE} />
+      <Circle cx={head.x} cy={head.y} r={12} stroke={color} strokeWidth={2.5} fill="none" />
+      <Line x1={neck.x} y1={neck.y} x2={hip.x} y2={hip.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={shoulder.x} y1={shoulder.y} x2={hands.x} y2={hands.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={hands.x} y1={hands.y} x2={clubEnd.x} y2={clubEnd.y} stroke={color} strokeWidth={2} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={lKnee.x} y2={lKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={lKnee.x} y1={lKnee.y} x2={lFoot.x} y2={lFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={tKnee.x} y2={tKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={tKnee.x} y1={tKnee.y} x2={tFoot.x} y2={tFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      {/* Hip touching wall */}
+      <Line x1={hip.x} y1={hip.y} x2={W} y2={hip.y} stroke={color} strokeWidth={1.5} strokeDasharray="4 3" />
+      <Circle cx={W} cy={hip.y} r={3} fill={color} opacity={0.4} />
+      {/* Rotation arrow */}
+      <Path d="M 130 100 Q 137 90 145 98" stroke={color} strokeWidth={1.5} fill="none" {...STROKE} />
+      <Path d="M 142 95 L 145 98 L 141 101" stroke={color} strokeWidth={1.5} fill="none" {...STROKE} />
     </Svg>
   );
 }
 
-/** Follow-through — hips open, weight shifted to lead side, still near wall. */
+/** Follow-through — hips open, weight on lead side, butt still near wall. */
 export function WallImpact({ size = 200, color }: IllustrationProps) {
+  const W = 155; const G = 180;
+  const hip = { x: W - 8, y: 110 };
+  const neck = { x: hip.x - 28, y: 52 };
+  const head = { x: neck.x - 5, y: 35 };
+  const shoulder = { x: neck.x + 2, y: 68 };
+  // Arms wrapped up in finish
+  const hands = { x: shoulder.x + 10, y: 45 };
+  const clubEnd = { x: hands.x + 18, y: 30 };
+  const lKnee = { x: hip.x - 25, y: 145 };
+  const lFoot = { x: hip.x - 32, y: G };
+  // Trail heel up
+  const tKnee = { x: hip.x + 3, y: 145 };
+  const tFoot = { x: hip.x + 6, y: 168 };
+
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      {/* Wall */}
-      <Rect x={148} y={18} width={14} height={158} fill={color} opacity={0.12} rx={2} />
-      <Line x1={148} y1={18} x2={148} y2={176} stroke={color} strokeWidth={2.5} {...STROKE} />
-
-      {/* Ground */}
-      <Line x1={18} y1={175} x2={175} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* HEAD — turned toward target */}
-      <Circle cx={80} cy={53} r={10} stroke={color} strokeWidth={2} fill="none" />
-
-      {/* SPINE — more upright in follow-through */}
-      <Line x1={80} y1={63} x2={92} y2={112} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* ARMS — wrapped up into finish */}
-      <Line x1={85} y1={78} x2={66} y2={55} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={66} y1={55} x2={50} y2={40} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* Lead hip open arrow */}
-      <Path d="M 78 107 Q 68 96 62 105" stroke={color} strokeWidth={1.5} fill="none" {...STROKE} />
-      <Path d="M 64 102 L 61 107 L 66 109" stroke={color} strokeWidth={1.5} fill="none" {...STROKE} />
-
+      <Rect x={W} y={10} width={16} height={G - 10} fill={color} opacity={0.1} rx={2} />
+      <Line x1={W} y1={10} x2={W} y2={G} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={15} y1={G} x2={185} y2={G} stroke={color} strokeWidth={2} {...STROKE} />
+      <Circle cx={head.x} cy={head.y} r={12} stroke={color} strokeWidth={2.5} fill="none" />
+      <Line x1={neck.x} y1={neck.y} x2={hip.x} y2={hip.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={shoulder.x} y1={shoulder.y} x2={hands.x} y2={hands.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={hands.x} y1={hands.y} x2={clubEnd.x} y2={clubEnd.y} stroke={color} strokeWidth={2} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={lKnee.x} y2={lKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={lKnee.x} y1={lKnee.y} x2={lFoot.x} y2={lFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={tKnee.x} y2={tKnee.y} stroke={color} strokeWidth={2.5} {...STROKE} />
+      <Line x1={tKnee.x} y1={tKnee.y} x2={tFoot.x} y2={tFoot.y} stroke={color} strokeWidth={2.5} {...STROKE} />
       {/* Hip near wall */}
-      <Line x1={92} y1={112} x2={148} y2={112} stroke={color} strokeWidth={1.5} strokeDasharray="3 2" />
-
-      {/* LEAD LEG — weight bearing, planted */}
-      <Line x1={92} y1={112} x2={80} y2={145} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={80} y1={145} x2={75} y2={175} stroke={color} strokeWidth={2} {...STROKE} />
-
-      {/* TRAIL LEG — heel up, toe down */}
-      <Line x1={92} y1={112} x2={108} y2={143} stroke={color} strokeWidth={2} {...STROKE} />
-      <Line x1={108} y1={143} x2={112} y2={160} stroke={color} strokeWidth={2} {...STROKE} />
+      <Line x1={hip.x} y1={hip.y} x2={W} y2={hip.y} stroke={color} strokeWidth={1.5} strokeDasharray="4 3" />
+      <Circle cx={W} cy={hip.y} r={3} fill={color} opacity={0.4} />
     </Svg>
   );
 }
