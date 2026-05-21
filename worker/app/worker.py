@@ -12,6 +12,8 @@ import os
 import signal
 import sys
 import time
+import urllib.request
+import urllib.error
 
 import redis
 import sqlalchemy
@@ -32,6 +34,9 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 REDIS_QUEUE = os.environ.get("REDIS_QUEUE", "swing:analyze")
 DATABASE_URL = os.environ.get("DATABASE_URL", settings.database_url)
 VIDEO_STORAGE_PATH = os.environ.get("VIDEO_STORAGE_PATH", settings.video_storage_path)
+API_INTERNAL_URL = os.environ.get(
+    "API_INTERNAL_URL", "http://swing-detector-api.swing-detector.svc:8000"
+)
 
 shutdown = False
 
@@ -83,6 +88,22 @@ def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict):
     logger.info(f"Saved {len(rendered)} phase frames for swing {swing_id}")
 
 
+def notify_swing_complete(swing_id: str, user_id: str):
+    """Call the Go API internal endpoint to send a push notification."""
+    try:
+        payload = json.dumps({"swing_id": swing_id, "user_id": user_id}).encode()
+        req = urllib.request.Request(
+            f"{API_INTERNAL_URL}/internal/notify/swing-complete",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            logger.info(f"Notification sent for swing {swing_id}: {resp.status}")
+    except Exception:
+        logger.warning(f"Failed to send notification for swing {swing_id}", exc_info=True)
+
+
 def process_job(job_data: dict, session_factory: sessionmaker):
     swing_id = job_data["swing_id"]
     video_path = job_data["video_path"]
@@ -131,6 +152,8 @@ def process_job(job_data: dict, session_factory: sessionmaker):
             },
         )
         db.commit()
+
+        notify_swing_complete(swing_id, user_id)
 
     except Exception as e:
         logger.exception(f"Failed to process swing {swing_id}")

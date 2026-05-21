@@ -1,0 +1,148 @@
+name: Release Mobile
+
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: Build type
+        required: true
+        default: 'AUTO'
+        type: choice
+        options:
+          - 'AUTO'
+          - 'OTA'
+          - 'BUILD'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  detect:
+    if: github.event_name == 'push' || inputs.type == 'AUTO'
+    runs-on: [self-hosted, 6cclab]
+    defaults:
+      run:
+        working-directory: mobile
+    outputs:
+      needs_build: ${{ steps.check.outputs.needs_build }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+
+      - name: Check native fingerprint
+        id: check
+        run: |
+          CURRENT=$(npx @expo/fingerprint fingerprint:generate | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])")
+          echo "Current fingerprint: $CURRENT"
+
+          STORED=""
+          if [ -f .fingerprint ]; then
+            STORED=$(cat .fingerprint)
+            echo "Stored fingerprint: $STORED"
+          else
+            echo "No stored fingerprint found"
+          fi
+
+          if [ "$CURRENT" != "$STORED" ]; then
+            echo "Fingerprint changed — native build required"
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Fingerprint unchanged — OTA only"
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  update:
+    needs: [detect]
+    if: always() && (needs.detect.outputs.needs_build == 'false' || inputs.type == 'OTA')
+    runs-on: [self-hosted, 6cclab]
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch secrets from Infisical
+        uses: infisical/secrets-action@v1.0.9
+        with:
+          method: 'oidc'
+          domain: 'https://infisical.6cclab.dev'
+          identity-id: '2eff097e-da38-4233-b537-25bfb634e9a4'
+          project-slug: 'github-actions-wc-rx'
+          env-slug: 'dev'
+          secret-path: '/apple'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ env.EXPO_TOKEN }}
+
+      - name: Publish OTA update
+        run: eas update --channel preview --message "${{ github.event.head_commit.message || 'manual OTA update' }}" --non-interactive
+
+  build:
+    needs: [detect]
+    if: always() && (needs.detect.outputs.needs_build == 'true' || inputs.type == 'BUILD')
+    runs-on: [self-hosted, 6cclab]
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch secrets from Infisical
+        uses: infisical/secrets-action@v1.0.9
+        with:
+          method: 'oidc'
+          domain: 'https://infisical.6cclab.dev'
+          identity-id: '2eff097e-da38-4233-b537-25bfb634e9a4'
+          project-slug: 'github-actions-wc-rx'
+          env-slug: 'dev'
+          secret-path: '/apple'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ env.EXPO_TOKEN }}
+
+      - name: Build iOS
+        run: eas build --platform ios --profile preview --non-interactive
+
+      - name: Save fingerprint
+        run: |
+          npx @expo/fingerprint fingerprint:generate | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])" > .fingerprint
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .fingerprint
+          git commit -m "chore: update native fingerprint" || true
+          git push || true

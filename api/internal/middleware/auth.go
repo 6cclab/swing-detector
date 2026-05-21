@@ -13,9 +13,13 @@ var publicPaths = map[string]bool{
 	"/api/auth/login":    true,
 }
 
+func isInternalPath(path string) bool {
+	return len(path) > 10 && path[:10] == "/internal/"
+}
+
 func AuthMiddleware(secret []byte) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		if publicPaths[c.Path()] {
+		if publicPaths[c.Path()] || isInternalPath(c.Path()) {
 			return c.Next()
 		}
 

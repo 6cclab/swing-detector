@@ -133,6 +133,33 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 	return c.JSON(user.ToResponse())
 }
 
+type pushTokenRequest struct {
+	Token string `json:"token"`
+}
+
+func (h *AuthHandler) RegisterPushToken(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+
+	var body pushTokenRequest
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if body.Token == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "token is required"})
+	}
+
+	result := h.db.Model(&models.User{}).Where("id = ?", userID).Update("expo_push_token", body.Token)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to save push token"})
+	}
+	if result.RowsAffected == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	return c.JSON(fiber.Map{"registered": true})
+}
+
 type updatePreferencesRequest struct {
 	Notifications *bool   `json:"notifications"`
 	CameraAngle   *string `json:"camera_angle"`

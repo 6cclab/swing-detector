@@ -37,6 +37,7 @@ func main() {
 	authH := handler.NewAuthHandler(db, []byte(cfg.JWTSecret))
 	swingH := handler.NewSwingHandler(db, store, q)
 	progressH := handler.NewProgressHandler(db)
+	notifyH := handler.NewNotifyHandler(db)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: cfg.MaxUploadMB * 1024 * 1024,
@@ -58,6 +59,7 @@ func main() {
 	auth.Post("/login", authH.Login)
 	auth.Get("/me", authH.Me)
 	auth.Patch("/me", authH.UpdateMe)
+	auth.Post("/push-token", authH.RegisterPushToken)
 
 	swings := api.Group("/swings")
 	swings.Post("/upload", swingH.Upload)
@@ -67,6 +69,9 @@ func main() {
 	swings.Get("/:id/frames/:phase", swingH.GetFrame)
 
 	api.Get("/users/me/progress", progressH.GetProgress)
+
+	internal := app.Group("/internal")
+	internal.Post("/notify/swing-complete", notifyH.SwingComplete)
 
 	go func() {
 		slog.Info("starting server", "port", cfg.Port)

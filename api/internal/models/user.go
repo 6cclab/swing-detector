@@ -11,6 +11,7 @@ type User struct {
 	Notifications   bool      `gorm:"default:true" json:"notifications"`
 	CameraAngle     string    `gorm:"column:camera_angle;default:face-on" json:"camera_angle"`
 	Units           string    `gorm:"default:yards" json:"units"`
+	ExpoPushToken   string    `gorm:"column:expo_push_token" json:"-"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 

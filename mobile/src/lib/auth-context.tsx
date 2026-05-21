@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiPatch, apiPost } from "./api";
 import { getToken, removeToken, setToken } from "./auth";
+import { registerForPushNotifications } from "./notifications";
 
 export type User = {
   id: string;
@@ -41,6 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { apiGet } = await import("./api");
             const u = await apiGet<User>("/api/auth/me");
             setUser(u);
+            if (u.notifications) {
+              registerForPushNotifications();
+            }
           } catch {
             await removeToken();
           }

@@ -1,7 +1,8 @@
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import "react-native-reanimated";
 
@@ -23,6 +24,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.swing_id) {
+        router.push(`/swing/${data.swing_id}`);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!loaded) return null;
 
