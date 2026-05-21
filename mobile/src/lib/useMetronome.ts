@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAudioPlayer } from "expo-audio";
+import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 
 const BPM = 72;
 const INTERVAL = (60 / BPM) * 1000;
@@ -10,6 +10,10 @@ export function useMetronome() {
   const [playing, setPlaying] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const player = useAudioPlayer(tickSource);
+
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true });
+  }, []);
 
   const start = useCallback(() => {
     if (timerRef.current) return;
