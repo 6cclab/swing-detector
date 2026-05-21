@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,12 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 
 import {
   Card,
@@ -27,14 +33,47 @@ import type { SwingAnalysisResult } from "@/src/types/analysis";
 function DrillCard({
   drill,
   recommended,
+  expanded,
+  onToggle,
   onStart,
 }: {
   drill: (typeof DRILLS)[number];
   recommended?: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onStart: () => void;
 }) {
   const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
+  const [showBody, setShowBody] = useState(expanded);
+  const bodyHeight = useSharedValue(0);
+  const bodyOpacity = useSharedValue(0);
+  const chevronRotate = useSharedValue(0);
+  const measuredHeight = useSharedValue(0);
+
+  useEffect(() => {
+    if (expanded) {
+      setShowBody(true);
+      bodyHeight.value = withTiming(1, { duration: 280 });
+      bodyOpacity.value = withTiming(1, { duration: 280 });
+      chevronRotate.value = withTiming(180, { duration: 280 });
+    } else {
+      bodyHeight.value = withTiming(0, { duration: 250 });
+      bodyOpacity.value = withTiming(0, { duration: 200 });
+      chevronRotate.value = withTiming(0, { duration: 250 });
+      const timer = setTimeout(() => setShowBody(false), 260);
+      return () => clearTimeout(timer);
+    }
+  }, [expanded]);
+
+  const bodyAnimStyle = useAnimatedStyle(() => ({
+    maxHeight: bodyHeight.value * measuredHeight.value,
+    opacity: bodyOpacity.value,
+    overflow: "hidden" as const,
+  }));
+
+  const chevronAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRotate.value}deg` }],
+  }));
 
   return (
     <Card
@@ -45,10 +84,7 @@ function DrillCard({
           : styles.drillCard
       }
     >
-      <Pressable
-        style={styles.drillHeader}
-        onPress={() => setExpanded((v) => !v)}
-      >
+      <Pressable style={styles.drillHeader} onPress={onToggle}>
         <View
           style={[
             styles.drillIconBox,
@@ -71,10 +107,7 @@ function DrillCard({
                 ]}
               >
                 <Text
-                  style={[
-                    styles.recommendedText,
-                    { color: theme.accent },
-                  ]}
+                  style={[styles.recommendedText, { color: theme.accent }]}
                 >
                   RECOMMENDED
                 </Text>
@@ -86,62 +119,59 @@ function DrillCard({
           </Text>
         </View>
 
-        <View
-          style={[
-            styles.chevronWrap,
-            expanded && styles.chevronExpanded,
-          ]}
-        >
-          <IconChevDown
-            size={18}
-            color={theme.textDim}
-            strokeWidth={1.8}
-          />
-        </View>
+        <Animated.View style={chevronAnimStyle}>
+          <IconChevDown size={18} color={theme.textDim} strokeWidth={1.8} />
+        </Animated.View>
       </Pressable>
 
-      {expanded && (
-        <View
-          style={[
-            styles.drillBody,
-            {
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: theme.borderStrong,
-              borderStyle: "dashed",
-            },
-          ]}
-        >
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <IconClock size={14} color={theme.textMuted} strokeWidth={1.7} />
-              <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                {drill.duration}
-              </Text>
+      {showBody && (
+        <Animated.View style={bodyAnimStyle}>
+          <View
+            style={[
+              styles.drillBody,
+              {
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: theme.borderStrong,
+                borderStyle: "dashed",
+              },
+            ]}
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h > 0) measuredHeight.value = h;
+            }}
+          >
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <IconClock size={14} color={theme.textMuted} strokeWidth={1.7} />
+                <Text style={[styles.metaText, { color: theme.textMuted }]}>
+                  {drill.duration}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.levelPill,
+                  { backgroundColor: theme.surfaceAlt },
+                ]}
+              >
+                <Text style={[styles.levelText, { color: theme.textMuted }]}>
+                  {drill.level}
+                </Text>
+              </View>
+              <View style={styles.metaItem}>
+                <IconTarget size={14} color={theme.textMuted} strokeWidth={1.7} />
+                <Text style={[styles.metaText, { color: theme.textMuted }]}>
+                  {drill.target.replace(/_/g, " ")}
+                </Text>
+              </View>
             </View>
-            <View
-              style={[
-                styles.levelPill,
-                { backgroundColor: theme.surfaceAlt },
-              ]}
-            >
-              <Text style={[styles.levelText, { color: theme.textMuted }]}>
-                {drill.level}
-              </Text>
-            </View>
-            <View style={styles.metaItem}>
-              <IconTarget size={14} color={theme.textMuted} strokeWidth={1.7} />
-              <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                {drill.target.replace(/_/g, " ")}
-              </Text>
-            </View>
+
+            <Text style={[styles.description, { color: theme.text }]}>
+              {drill.description}
+            </Text>
+
+            <PrimaryButton title="Start drill" onPress={onStart} />
           </View>
-
-          <Text style={[styles.description, { color: theme.text }]}>
-            {drill.description}
-          </Text>
-
-          <PrimaryButton title="Start drill" onPress={onStart} />
-        </View>
+        </Animated.View>
       )}
     </Card>
   );
@@ -154,6 +184,10 @@ export default function DrillsScreen() {
   const [hasSwings, setHasSwings] = useState(false);
   const [latestDate, setLatestDate] = useState<string>("");
   const [recommended, setRecommended] = useState<typeof DRILLS>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const toggleDrill = (id: string) =>
+    setExpandedId((prev) => (prev === id ? null : id));
 
   useFocusEffect(
     useCallback(() => {
@@ -243,7 +277,7 @@ export default function DrillsScreen() {
           </View>
           <View style={styles.drillList}>
             {recommended.map((drill) => (
-              <DrillCard key={drill.id} drill={drill} recommended onStart={() => router.push(`/drill/${drill.id}`)} />
+              <DrillCard key={drill.id} drill={drill} recommended expanded={expandedId === drill.id} onToggle={() => toggleDrill(drill.id)} onStart={() => router.push(`/drill/${drill.id}`)} />
             ))}
           </View>
         </View>
@@ -258,7 +292,7 @@ export default function DrillsScreen() {
         </View>
         <View style={styles.drillList}>
           {library.map((drill) => (
-            <DrillCard key={drill.id} drill={drill} onStart={() => router.push(`/drill/${drill.id}`)} />
+            <DrillCard key={drill.id} drill={drill} expanded={expandedId === drill.id} onToggle={() => toggleDrill(drill.id)} onStart={() => router.push(`/drill/${drill.id}`)} />
           ))}
         </View>
       </View>
@@ -351,12 +385,6 @@ const styles = StyleSheet.create({
   },
   drillFocus: {
     fontSize: 12,
-  },
-  chevronWrap: {
-    transform: [{ rotate: "0deg" }],
-  },
-  chevronExpanded: {
-    transform: [{ rotate: "180deg" }],
   },
   drillBody: {
     padding: 14,
