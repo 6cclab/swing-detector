@@ -1,6 +1,11 @@
 name: Release Mobile
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile.yaml"
   workflow_dispatch:
     inputs:
       type:
