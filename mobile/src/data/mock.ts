@@ -208,7 +208,7 @@ export const DRILLS: Drill[] = [
     description:
       "Count '1-2-3' on the backswing, '1' on the downswing. Use a metronome app at 72 BPM for the backswing beat.",
     steps: [
-      { title: 'Set your tempo', instruction: 'Open a metronome app and set it to 72 BPM. Each beat is one count.', tip: 'Tour average is roughly a 3:1 ratio.' },
+      { title: 'Set your tempo', instruction: 'Use the built-in metronome on the next steps — it\'s set to 72 BPM. Each beat is one count.', tip: 'Tour average is roughly a 3:1 ratio.' },
       { title: 'Count the backswing', instruction: 'Say "one-two-three" as you take the club back. Each count matches one metronome beat. Reach the top on "three".', tip: 'Don\'t rush — most amateurs go too fast.' },
       { title: 'Transition', instruction: 'On the next beat, say "one" and start the downswing. This single count covers the entire downswing through impact.', tip: 'The transition should feel smooth, not jerky.' },
       { title: 'Repeat', instruction: 'Hit 20 balls with the metronome. Focus on matching the rhythm, not on where the ball goes.', tip: 'Once it feels natural, try without the metronome.' },

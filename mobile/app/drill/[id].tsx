@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -18,6 +18,7 @@ import {
 import { DRILL_ILLUSTRATIONS } from "@/src/components/ui/DrillIllustrations";
 import { DRILLS } from "@/src/data/mock";
 import { typography, useTheme } from "@/src/lib/theme";
+import { useMetronome } from "@/src/lib/useMetronome";
 
 export default function DrillFlowScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +27,13 @@ export default function DrillFlowScreen() {
 
   const drill = DRILLS.find((d) => d.id === id);
   const [currentStep, setCurrentStep] = useState(0);
+  const metronome = useMetronome();
+  const isTempoDrill = drill?.id === "3-to-1-tempo";
+  const showMetronome = isTempoDrill && currentStep > 0 && currentStep < (drill?.steps.length ?? 0) - 1;
+
+  useEffect(() => {
+    if (!showMetronome) metronome.stop();
+  }, [showMetronome]);
 
   if (!drill) {
     return (
@@ -93,6 +101,25 @@ export default function DrillFlowScreen() {
           <View style={[styles.illustrationWrap, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}>
             {DRILL_ILLUSTRATIONS[drill.id][currentStep]({ size: 200, color: theme.accent })}
           </View>
+        )}
+
+        {/* Metronome controls */}
+        {showMetronome && (
+          <Pressable
+            style={[
+              styles.metronomeButton,
+              {
+                backgroundColor: metronome.playing ? `${theme.accent}22` : theme.surfaceAlt,
+                borderColor: metronome.playing ? theme.accent : theme.border,
+              },
+            ]}
+            onPress={metronome.playing ? metronome.stop : metronome.start}
+          >
+            <View style={[styles.metronomeDot, { backgroundColor: metronome.playing ? theme.accent : theme.textMuted }]} />
+            <Text style={[styles.metronomeLabel, { color: metronome.playing ? theme.accent : theme.text }]}>
+              {metronome.playing ? "Stop Metronome" : "Play Metronome — 72 BPM"}
+            </Text>
+          </Pressable>
         )}
 
         {/* Instruction card */}
@@ -190,6 +217,9 @@ const styles = StyleSheet.create({
   drillMeta: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   metaChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   metaText: { fontSize: 12, fontWeight: "500" },
+  metronomeButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
+  metronomeDot: { width: 10, height: 10, borderRadius: 5 },
+  metronomeLabel: { fontSize: 15, fontWeight: "600" },
   nav: { flexDirection: "row", gap: 12, paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 36, borderTopWidth: StyleSheet.hairlineWidth },
   navSpacer: { flex: 1 },
   navButton: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
