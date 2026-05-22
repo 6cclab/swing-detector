@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Swipeable, GestureHandlerRootView } from "react-native-gesture-handler";
 
 import {
   Card,
@@ -19,7 +20,7 @@ import {
   ScoreChip,
   Sparkline,
 } from "@/src/components/ui";
-import { apiGet } from "@/src/lib/api";
+import { apiGet, apiDelete } from "@/src/lib/api";
 import { typography, useTheme } from "@/src/lib/theme";
 import type { SwingListResponse } from "@/src/types/swing";
 import type { SwingAnalysisResult } from "@/src/types/analysis";
@@ -43,6 +44,12 @@ export default function ProgressScreen() {
   const [loading, setLoading] = useState(true);
   const [swings, setSwings] = useState<SwingRow[]>([]);
   const [latestAnalysis, setLatestAnalysis] = useState<SwingAnalysisResult | null>(null);
+  const deleteSwing = useCallback(async (id: string) => {
+    try {
+      await apiDelete(`/api/swings/${id}`);
+      setSwings((prev) => prev.filter((s) => s.id !== id));
+    } catch { /* ignore */ }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,8 +125,9 @@ export default function ProgressScreen() {
   const recentSwings = swings.slice(0, 5);
 
   return (
+    <GestureHandlerRootView style={[styles.screen, { backgroundColor: theme.bg }]}>
     <ScrollView
-      style={[styles.screen, { backgroundColor: theme.bg }]}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -192,30 +200,45 @@ export default function ProgressScreen() {
 
         <Card padded={false}>
           {recentSwings.map((swing, idx) => (
-            <Pressable
+            <Swipeable
               key={swing.id}
-              style={[
-                styles.swingRow,
-                idx < recentSwings.length - 1 && {
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: theme.border,
-                },
-              ]}
-              onPress={() => router.push(`/swing/${swing.id}`)}
+              renderRightActions={() => (
+                <Pressable
+                  style={[styles.deleteAction, { backgroundColor: theme.severity.bad }]}
+                  onPress={() => deleteSwing(swing.id)}
+                >
+                  <Text style={styles.deleteText}>Delete</Text>
+                </Pressable>
+              )}
+              overshootRight={false}
+              rightThreshold={40}
             >
-              <ScoreChip score={swing.score} size="sm" />
-              <View style={styles.swingMeta}>
-                <Text style={[styles.swingLabel, { color: theme.text }]}>{swing.label}</Text>
-                <Text style={[styles.swingDetail, { color: theme.textMuted }]}>
-                  {fmtDate(swing.date)}
-                </Text>
-              </View>
-              <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
-            </Pressable>
+              <Pressable
+                style={[
+                  styles.swingRow,
+                  { backgroundColor: theme.surface },
+                  idx < recentSwings.length - 1 && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: theme.border,
+                  },
+                ]}
+                onPress={() => router.push(`/swing/${swing.id}`)}
+              >
+                <ScoreChip score={swing.score} size="sm" />
+                <View style={styles.swingMeta}>
+                  <Text style={[styles.swingLabel, { color: theme.text }]}>{swing.label}</Text>
+                  <Text style={[styles.swingDetail, { color: theme.textMuted }]}>
+                    {fmtDate(swing.date)}
+                  </Text>
+                </View>
+                <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />
+              </Pressable>
+            </Swipeable>
           ))}
         </Card>
       </View>
     </ScrollView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -240,8 +263,10 @@ const styles = StyleSheet.create({
   sparklineWrap: { marginTop: 4 },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
   seeAll: { fontSize: 14, fontWeight: "500" },
-  swingRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  swingRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 16 },
   swingMeta: { flex: 1, gap: 3 },
   swingLabel: { fontSize: typography.cardTitle, fontWeight: "500" },
   swingDetail: { fontSize: 12 },
+  deleteAction: { width: 80, justifyContent: "center", alignItems: "center" },
+  deleteText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });

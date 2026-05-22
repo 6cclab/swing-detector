@@ -110,6 +110,21 @@ func (h *SwingHandler) Get(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+func (h *SwingHandler) Delete(c *fiber.Ctx) error {
+	userID := middleware.GetUserID(c)
+	swingID := c.Params("id")
+
+	result := h.db.Where("id = ? AND user_id = ?", swingID, userID).Delete(&models.Swing{})
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete swing"})
+	}
+	if result.RowsAffected == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "Swing not found"})
+	}
+
+	return c.JSON(fiber.Map{"deleted": true})
+}
+
 func (h *SwingHandler) List(c *fiber.Ctx) error {
 	userID := middleware.GetUserID(c)
 	page := c.QueryInt("page", 1)

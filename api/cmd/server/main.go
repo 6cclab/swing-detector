@@ -72,6 +72,7 @@ func main() {
 	swings.Post("/upload", swingH.Upload)
 	swings.Get("/", swingH.List)
 	swings.Get("/:id", swingH.Get)
+	swings.Delete("/:id", swingH.Delete)
 	swings.Get("/:id/frames", swingH.ListFrames)
 	swings.Get("/:id/frames/:phase", swingH.GetFrame)
 

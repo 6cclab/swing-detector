@@ -51,6 +51,19 @@ export async function apiPatch<T>(
   return res.json();
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
 export async function apiUpload<T>(
   path: string,
   fileUri: string,

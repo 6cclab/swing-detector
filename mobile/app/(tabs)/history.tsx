@@ -10,9 +10,10 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Swipeable, GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { Card, IconChevRight, IconList } from "@/src/components/ui";
-import { apiGet } from "@/src/lib/api";
+import { apiGet, apiDelete } from "@/src/lib/api";
 import { scoreSeverity, typography, useTheme } from "@/src/lib/theme";
 import type { SwingListResponse, SwingSummary } from "@/src/types/swing";
 
@@ -41,6 +42,35 @@ function groupByDate(items: SwingSummary[]): Group[] {
   return Object.values(map).sort((a, b) => b.date.getTime() - a.date.getTime());
 }
 
+function SwipeableRow({
+  children,
+  onDelete,
+}: {
+  children: React.ReactNode;
+  onDelete: () => void;
+}) {
+  const theme = useTheme();
+
+  const renderRightActions = () => (
+    <Pressable
+      style={[styles.deleteAction, { backgroundColor: theme.severity.bad }]}
+      onPress={onDelete}
+    >
+      <Text style={styles.deleteText}>Delete</Text>
+    </Pressable>
+  );
+
+  return (
+    <Swipeable
+      renderRightActions={renderRightActions}
+      overshootRight={false}
+      rightThreshold={40}
+    >
+      {children}
+    </Swipeable>
+  );
+}
+
 export default function HistoryScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -57,6 +87,13 @@ export default function HistoryScreen() {
     setRefreshing(false);
   }, []);
 
+  const deleteSwing = useCallback(async (id: string) => {
+    try {
+      await apiDelete(`/api/swings/${id}`);
+      fetchSwings();
+    } catch { /* ignore */ }
+  }, [fetchSwings]);
+
   useFocusEffect(
     useCallback(() => {
       fetchSwings();
@@ -72,8 +109,9 @@ export default function HistoryScreen() {
   }
 
   return (
+    <GestureHandlerRootView style={[styles.screen, { backgroundColor: theme.bg }]}>
     <ScrollView
-      style={[styles.screen, { backgroundColor: theme.bg }]}
+      style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -99,51 +137,49 @@ export default function HistoryScreen() {
           <Text style={[styles.dateHeader, { color: theme.textMuted }]}>
             {fmtDateHeader(group.date)}
           </Text>
-          <Card padded={false}>
-            {group.items.map((swing, idx) => {
+          <View style={styles.swingList}>
+            {group.items.map((swing) => {
               const sev = swing.overall_score != null ? scoreSeverity(swing.overall_score) : "mod";
               const sevColor = theme.severity[sev];
               const isPending = swing.status !== "complete";
 
               return (
-                <Pressable
-                  key={swing.id}
-                  style={[
-                    styles.swingRow,
-                    idx < group.items.length - 1 && {
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: theme.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    if (!isPending) router.push(`/swing/${swing.id}`);
-                  }}
-                >
-                  <View style={[styles.scoreBadge, { backgroundColor: `${sevColor}1e` }]}>
-                    {isPending ? (
-                      <ActivityIndicator size="small" color={sevColor} />
-                    ) : (
-                      <Text style={[styles.scoreBadgeText, { color: sevColor }]}>
-                        {swing.overall_score != null ? Math.round(swing.overall_score) : "—"}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.swingMeta}>
-                    <Text style={[styles.swingLabel, { color: theme.text }]}>
-                      {isPending ? `Swing (${swing.status})` : "Swing"}
-                    </Text>
-                    <Text style={[styles.swingDetail, { color: theme.textMuted }]}>
-                      {fmtTime(swing.dateObj)} · {swing.handedness}
-                    </Text>
-                  </View>
-                  {!isPending && <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />}
-                </Pressable>
+                <SwipeableRow key={swing.id} onDelete={() => deleteSwing(swing.id)}>
+                  <Card padded={false}>
+                    <Pressable
+                      style={styles.swingRow}
+                      onPress={() => {
+                        if (!isPending) router.push(`/swing/${swing.id}`);
+                      }}
+                    >
+                      <View style={[styles.scoreBadge, { backgroundColor: `${sevColor}1e` }]}>
+                        {isPending ? (
+                          <ActivityIndicator size="small" color={sevColor} />
+                        ) : (
+                          <Text style={[styles.scoreBadgeText, { color: sevColor }]}>
+                            {swing.overall_score != null ? Math.round(swing.overall_score) : "—"}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.swingMeta}>
+                        <Text style={[styles.swingLabel, { color: theme.text }]}>
+                          {isPending ? `Swing (${swing.status})` : "Swing"}
+                        </Text>
+                        <Text style={[styles.swingDetail, { color: theme.textMuted }]}>
+                          {fmtTime(swing.dateObj)} · {swing.handedness}
+                        </Text>
+                      </View>
+                      {!isPending && <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />}
+                    </Pressable>
+                  </Card>
+                </SwipeableRow>
               );
             })}
-          </Card>
+          </View>
         </View>
       ))}
     </ScrollView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -156,12 +192,15 @@ const styles = StyleSheet.create({
   emptyInner: { marginTop: 80, alignItems: "center", gap: 10 },
   emptyTitle: { fontSize: 20, fontWeight: "600" },
   emptyBody: { fontSize: 14, textAlign: "center", paddingHorizontal: 40 },
-  group: { marginBottom: 12 },
+  group: { marginBottom: 16 },
+  swingList: { gap: 10 },
   dateHeader: { fontFamily: "SpaceMono", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.18 * 11, marginBottom: 8 },
-  swingRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  swingRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  swingMeta: { flex: 1, gap: 4 },
   scoreBadge: { width: 48, height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   scoreBadgeText: { fontSize: 17, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  swingMeta: { flex: 1, gap: 3 },
   swingLabel: { fontSize: typography.cardTitle, fontWeight: "500" },
   swingDetail: { fontSize: 12 },
+  deleteAction: { width: 80, justifyContent: "center", alignItems: "center" },
+  deleteText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });
