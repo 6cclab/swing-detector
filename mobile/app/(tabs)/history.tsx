@@ -144,10 +144,10 @@ export default function HistoryScreen() {
               const isPending = swing.status !== "complete";
 
               return (
-                <SwipeableRow key={swing.id} onDelete={() => deleteSwing(swing.id)}>
-                  <Card padded={false}>
+                <Card key={swing.id} padded={false} style={styles.swingCard}>
+                  <SwipeableRow onDelete={() => deleteSwing(swing.id)}>
                     <Pressable
-                      style={styles.swingRow}
+                      style={[styles.swingRow, { backgroundColor: theme.surface }]}
                       onPress={() => {
                         if (!isPending) router.push(`/swing/${swing.id}`);
                       }}
@@ -171,8 +171,8 @@ export default function HistoryScreen() {
                       </View>
                       {!isPending && <IconChevRight size={16} color={theme.textDim} strokeWidth={1.7} />}
                     </Pressable>
-                  </Card>
-                </SwipeableRow>
+                  </SwipeableRow>
+                </Card>
               );
             })}
           </View>
@@ -194,6 +194,7 @@ const styles = StyleSheet.create({
   emptyBody: { fontSize: 14, textAlign: "center", paddingHorizontal: 40 },
   group: { marginBottom: 16 },
   swingList: { gap: 10 },
+  swingCard: { overflow: "hidden" },
   dateHeader: { fontFamily: "SpaceMono", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.18 * 11, marginBottom: 8 },
   swingRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
   swingMeta: { flex: 1, gap: 4 },
