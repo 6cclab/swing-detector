@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   phasePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9999, borderWidth: 0.5 },
   phasePillText: { fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
   frameCard: { overflow: "hidden" },
-  frameImage: { width: "100%", aspectRatio: 640 / 480, backgroundColor: "#000" },
+  frameImage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
   frameLegend: { flexDirection: "row", gap: 16, padding: 12, justifyContent: "center" },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
