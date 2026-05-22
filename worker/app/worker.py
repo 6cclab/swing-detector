@@ -91,7 +91,7 @@ def download_video(video_key: str) -> str:
         raise
 
 
-def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict):
+def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict, handedness: str = "right"):
     """Pre-render skeleton overlay frames for each phase and upload to S3."""
     phases_detected = analysis_data.get("phases_detected", [])
     pose_frames = analysis_data.get("pose_frames", [])
@@ -109,6 +109,7 @@ def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict):
         video_path=video_path,
         pose_frames_data=pose_frames,
         phase_key_frames=phase_key_frames,
+        handedness=handedness,
     )
 
     client = get_s3_client()
@@ -170,7 +171,7 @@ def process_job(job_data: dict, session_factory: sessionmaker):
 
         analysis_json = result.model_dump_json()
         analysis_data = json.loads(analysis_json)
-        save_phase_frames(swing_id, local_video_path, analysis_data)
+        save_phase_frames(swing_id, local_video_path, analysis_data, handedness)
 
         db.execute(
             text(

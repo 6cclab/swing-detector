@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from app.pipeline.ghost_pose import generate_ghost_pose
 from app.schemas.analysis import Landmark
 
 # MediaPipe pose skeleton connections
@@ -51,23 +52,36 @@ def render_skeleton_on_frame(
     return overlay
 
 
+def render_ghost_overlay(
+    frame: np.ndarray,
+    ghost_landmarks: list[Landmark],
+    alpha: float = 0.4,
+    color: tuple[int, int, int] = (0, 230, 118),
+) -> np.ndarray:
+    """Render a semi-transparent ghost skeleton showing ideal form."""
+    overlay = frame.copy()
+    overlay = render_skeleton_on_frame(overlay, ghost_landmarks, color=color, thickness=3, dot_radius=5)
+    return cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+
+
 def render_key_frames(
     video_path: str,
     pose_frames_data: list[dict],
     phase_key_frames: dict[str, int],
     max_width: int = 640,
+    handedness: str = "right",
 ) -> dict[str, bytes]:
     """Render skeleton overlay on key frames for each phase.
 
+    Draws a green ghost skeleton showing ideal pro form, then the
+    user's actual skeleton on top in blue.
+
     Returns dict mapping phase name -> JPEG bytes.
     """
-    import json
-
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return {}
 
-    # Build frame_index -> landmarks mapping
     landmarks_by_frame: dict[int, list[Landmark]] = {}
     for pf in pose_frames_data:
         idx = pf["frame_index"]
@@ -88,6 +102,9 @@ def render_key_frames(
 
         landmarks = landmarks_by_frame.get(frame_idx)
         if landmarks:
+            ghost = generate_ghost_pose(landmarks, phase, handedness)
+            if ghost:
+                frame = render_ghost_overlay(frame, ghost)
             frame = render_skeleton_on_frame(frame, landmarks)
 
         _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
