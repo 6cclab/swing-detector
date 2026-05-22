@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,8 @@ import {
   SevDot,
 } from "@/src/components/ui";
 import { apiGet } from "@/src/lib/api";
+import { API_BASE_URL } from "@/src/lib/config";
+import { getToken } from "@/src/lib/auth";
 import { scoreSeverity, typography, useTheme } from "@/src/lib/theme";
 import type { SwingAnalysisResult, AngleFeedback } from "@/src/types/analysis";
 
@@ -52,7 +55,12 @@ export default function SwingDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPhase, setSelectedPhase] = useState(0);
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    getToken().then(setAuthToken);
+  }, []);
 
   useEffect(() => {
     const poll = async () => {
@@ -163,6 +171,30 @@ export default function SwingDetailScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Phase Frame with Skeleton Overlay */}
+      {currentPhase && authToken && (
+        <Card padded={false} style={styles.frameCard}>
+          <Image
+            source={{
+              uri: `${API_BASE_URL}/api/swings/${id}/frames/${currentPhase.phase}`,
+              headers: { Authorization: `Bearer ${authToken}` },
+            }}
+            style={styles.frameImage}
+            resizeMode="contain"
+          />
+          <View style={styles.frameLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: "rgb(37, 99, 235)" }]} />
+              <Text style={[styles.legendText, { color: theme.textMuted }]}>Your form</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: "rgb(0, 230, 118)" }]} />
+              <Text style={[styles.legendText, { color: theme.textMuted }]}>Pro form</Text>
+            </View>
+          </View>
+        </Card>
+      )}
 
       {/* Coaching Tips */}
       {coachingTips.length > 0 && (
@@ -278,6 +310,12 @@ const styles = StyleSheet.create({
   phasePills: { gap: 6, paddingVertical: 4 },
   phasePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9999, borderWidth: 0.5 },
   phasePillText: { fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
+  frameCard: { overflow: "hidden" },
+  frameImage: { width: "100%", aspectRatio: 640 / 480, backgroundColor: "#000" },
+  frameLegend: { flexDirection: "row", gap: 16, padding: 12, justifyContent: "center" },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 12 },
   tipsList: { gap: 8 },
   tipCard: { padding: 14 },
   tipRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },

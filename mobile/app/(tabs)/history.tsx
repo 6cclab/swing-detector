@@ -97,7 +97,7 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchSwings();
-    }, [fetchSwings])
+    }, [])
   );
 
   if (loading) {

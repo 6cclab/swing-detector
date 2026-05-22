@@ -1,9 +1,9 @@
 """
 Generate a 'ghost' skeleton representing ideal pro form.
 
-Takes the user's actual landmarks and adjusts joint positions so that
-key angles match pro benchmark midpoints. The result can be rendered
-as a semi-transparent overlay showing where joints *should* be.
+Takes the user's actual landmarks and applies small, clamped corrections
+to joints that fall outside pro benchmark ranges. Only adjusts the
+distal (child) joint of each angle — never moves the whole skeleton.
 """
 
 import copy
@@ -26,6 +26,8 @@ LEFT_KNEE = 25
 RIGHT_KNEE = 26
 LEFT_ANKLE = 27
 RIGHT_ANKLE = 28
+
+MAX_CORRECTION_DEG = 15.0
 
 
 def _to_np(lm: Landmark) -> np.ndarray:
@@ -50,41 +52,35 @@ def _three_point_angle_2d(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
     return float(np.degrees(np.arccos(np.clip(cos_angle, -1.0, 1.0))))
 
 
-def _adjust_three_point(
+def _correction_for_range(measured: float, pro_min: float, pro_max: float) -> float:
+    """Return the clamped correction needed to bring measured into pro range."""
+    if measured < pro_min:
+        return min(pro_min - measured, MAX_CORRECTION_DEG)
+    if measured > pro_max:
+        return -min(measured - pro_max, MAX_CORRECTION_DEG)
+    return 0.0
+
+
+def _adjust_joint(
     landmarks: list[Landmark],
+    anchor_idx: int,
     pivot_idx: int,
     moving_idx: int,
-    anchor_idx: int,
-    target_angle: float,
+    pro_min: float,
+    pro_max: float,
 ) -> list[Landmark]:
-    """Rotate the moving landmark around the pivot to achieve target_angle."""
+    """Rotate moving_idx around pivot_idx to bring the angle closer to pro range."""
     anchor = _to_np(landmarks[anchor_idx])
     pivot = _to_np(landmarks[pivot_idx])
     moving = _to_np(landmarks[moving_idx])
 
     current = _three_point_angle_2d(anchor, pivot, moving)
-    delta = math.radians(target_angle - current)
+    correction = _correction_for_range(current, pro_min, pro_max)
+    if abs(correction) < 1.0:
+        return landmarks
 
-    new_pos = _rotate_point(moving, pivot, delta)
+    new_pos = _rotate_point(moving, pivot, math.radians(correction))
     landmarks[moving_idx] = _from_np(new_pos, landmarks[moving_idx])
-    return landmarks
-
-
-def _adjust_spine(landmarks: list[Landmark], target_angle: float) -> list[Landmark]:
-    """Adjust shoulder positions to achieve target spine angle."""
-    hip_mid = (_to_np(landmarks[LEFT_HIP]) + _to_np(landmarks[RIGHT_HIP])) / 2
-    shoulder_mid = (_to_np(landmarks[LEFT_SHOULDER]) + _to_np(landmarks[RIGHT_SHOULDER])) / 2
-
-    spine_vec = shoulder_mid - hip_mid
-    current_angle = math.degrees(math.atan2(spine_vec[0], -spine_vec[1]))
-    delta = math.radians(target_angle - abs(current_angle))
-    sign = 1 if current_angle >= 0 else -1
-
-    for idx in [LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_ELBOW, RIGHT_ELBOW, LEFT_WRIST, RIGHT_WRIST]:
-        pt = _to_np(landmarks[idx])
-        new_pt = _rotate_point(pt, hip_mid, sign * delta * 0.3)
-        landmarks[idx] = _from_np(new_pt, landmarks[idx])
-
     return landmarks
 
 
@@ -93,31 +89,34 @@ def generate_ghost_pose(
     phase: str,
     handedness: str = "right",
 ) -> list[Landmark] | None:
-    """Generate adjusted landmarks matching pro benchmarks for the given phase."""
+    """Generate adjusted landmarks matching pro benchmarks for the given phase.
+
+    Only adjusts joints that are outside the pro range, with corrections
+    clamped to MAX_CORRECTION_DEG to avoid wild distortions.
+    """
     benchmarks = PRO_BENCHMARKS.get(phase)
     if not benchmarks:
         return None
 
     ghost = copy.deepcopy(landmarks)
-    lead_side = "left" if handedness == "right" else "right"
-
-    if "spine_angle_deg" in benchmarks:
-        target = sum(benchmarks["spine_angle_deg"]) / 2
-        ghost = _adjust_spine(ghost, target)
+    lead_knee = LEFT_KNEE if handedness == "right" else RIGHT_KNEE
+    lead_ankle = LEFT_ANKLE if handedness == "right" else RIGHT_ANKLE
+    lead_hip = LEFT_HIP if handedness == "right" else RIGHT_HIP
+    lead_elbow = LEFT_ELBOW if handedness == "right" else RIGHT_ELBOW
+    lead_wrist = LEFT_WRIST if handedness == "right" else RIGHT_WRIST
+    lead_shoulder = LEFT_SHOULDER if handedness == "right" else RIGHT_SHOULDER
 
     if "lead_knee_flex_deg" in benchmarks:
-        target_flex = sum(benchmarks["lead_knee_flex_deg"]) / 2
-        target_angle = 180.0 - target_flex
-        if lead_side == "left":
-            ghost = _adjust_three_point(ghost, LEFT_KNEE, LEFT_ANKLE, LEFT_HIP, target_angle)
-        else:
-            ghost = _adjust_three_point(ghost, RIGHT_KNEE, RIGHT_ANKLE, RIGHT_HIP, target_angle)
+        pro_min, pro_max = benchmarks["lead_knee_flex_deg"]
+        flex_min, flex_max = 180.0 - pro_max, 180.0 - pro_min
+        ghost = _adjust_joint(ghost, lead_hip, lead_knee, lead_ankle, flex_min, flex_max)
 
     if "elbow_angle_deg" in benchmarks:
-        target = sum(benchmarks["elbow_angle_deg"]) / 2
-        if lead_side == "left":
-            ghost = _adjust_three_point(ghost, LEFT_ELBOW, LEFT_WRIST, LEFT_SHOULDER, target)
-        else:
-            ghost = _adjust_three_point(ghost, RIGHT_ELBOW, RIGHT_WRIST, RIGHT_SHOULDER, target)
+        pro_min, pro_max = benchmarks["elbow_angle_deg"]
+        ghost = _adjust_joint(ghost, lead_shoulder, lead_elbow, lead_wrist, pro_min, pro_max)
+
+    if "wrist_hinge_deg" in benchmarks:
+        pro_min, pro_max = benchmarks["wrist_hinge_deg"]
+        ghost = _adjust_joint(ghost, lead_elbow, lead_wrist, lead_shoulder, pro_min, pro_max)
 
     return ghost
