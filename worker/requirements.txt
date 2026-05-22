@@ -3,6 +3,7 @@ pydantic-settings
 sqlalchemy>=2.0
 psycopg2-binary
 redis>=5.0
+boto3>=1.35
 mediapipe>=0.10.14
 opencv-python-headless>=4.10.0
 numpy>=1.26.0

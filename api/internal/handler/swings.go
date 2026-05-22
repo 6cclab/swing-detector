@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
@@ -35,7 +34,7 @@ func (h *SwingHandler) Upload(c *fiber.Ctx) error {
 	}
 
 	if ct := file.Header.Get("Content-Type"); ct != "" {
-		if len(ct) < 5 || ct[:6] != "video/" {
+		if len(ct) < 6 || ct[:6] != "video/" {
 			return c.Status(400).JSON(fiber.Map{"error": "File must be a video"})
 		}
 	}
@@ -48,17 +47,12 @@ func (h *SwingHandler) Upload(c *fiber.Ctx) error {
 	}
 	defer f.Close()
 
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to read file"})
-	}
-
 	ext := filepath.Ext(file.Filename)
 	if ext == "" {
 		ext = ".mp4"
 	}
 
-	storedPath, err := h.store.SaveVideo(data, ext)
+	storedPath, err := h.store.SaveVideoStream(f, ext)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to save video"})
 	}

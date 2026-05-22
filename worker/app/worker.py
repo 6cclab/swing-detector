@@ -10,15 +10,15 @@ import json
 import logging
 import os
 import signal
-import sys
+import tempfile
 import time
 import urllib.request
-import urllib.error
 
+import boto3
 import redis
 import sqlalchemy
 from sqlalchemy import text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
 from app.pipeline.orchestrator import analyze_swing
@@ -33,12 +33,31 @@ logger = logging.getLogger(__name__)
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 REDIS_QUEUE = os.environ.get("REDIS_QUEUE", "swing:analyze")
 DATABASE_URL = os.environ.get("DATABASE_URL", settings.database_url)
-VIDEO_STORAGE_PATH = os.environ.get("VIDEO_STORAGE_PATH", settings.video_storage_path)
 API_INTERNAL_URL = os.environ.get(
     "API_INTERNAL_URL", "http://swing-detector-api.swing-detector.svc:8000"
 )
 
+S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
+S3_BUCKET = os.environ.get("S3_BUCKET", "swing-iq")
+S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY", "")
+S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY", "")
+S3_REGION = os.environ.get("S3_REGION", "garage")
+
 shutdown = False
+s3_client = None
+
+
+def get_s3_client():
+    global s3_client
+    if s3_client is None and S3_ENDPOINT:
+        s3_client = boto3.client(
+            "s3",
+            endpoint_url=S3_ENDPOINT,
+            aws_access_key_id=S3_ACCESS_KEY,
+            aws_secret_access_key=S3_SECRET_KEY,
+            region_name=S3_REGION,
+        )
+    return s3_client
 
 
 def signal_handler(signum, frame):
@@ -57,8 +76,23 @@ def get_db_session() -> tuple[sessionmaker, sqlalchemy.engine.Engine]:
     return session_factory, engine
 
 
+def download_video(video_key: str) -> str:
+    """Download video from S3 to a temp file and return the local path."""
+    client = get_s3_client()
+    suffix = os.path.splitext(video_key)[1] or ".mp4"
+    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    try:
+        client.download_fileobj(S3_BUCKET, video_key, tmp)
+        tmp.close()
+        return tmp.name
+    except Exception:
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
+
+
 def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict):
-    """Pre-render skeleton overlay frames for each phase and save to disk."""
+    """Pre-render skeleton overlay frames for each phase and upload to S3."""
     phases_detected = analysis_data.get("phases_detected", [])
     pose_frames = analysis_data.get("pose_frames", [])
 
@@ -71,19 +105,21 @@ def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict):
         end = phase["end_frame"]
         phase_key_frames[phase["phase"]] = (start + end) // 2
 
-    frames_dir = os.path.join(VIDEO_STORAGE_PATH, swing_id)
-    os.makedirs(frames_dir, exist_ok=True)
-
     rendered = render_key_frames(
         video_path=video_path,
         pose_frames_data=pose_frames,
         phase_key_frames=phase_key_frames,
     )
 
+    client = get_s3_client()
     for phase_name, jpeg_bytes in rendered.items():
-        frame_path = os.path.join(frames_dir, f"{phase_name}.jpg")
-        with open(frame_path, "wb") as f:
-            f.write(jpeg_bytes)
+        key = f"frames/{swing_id}/{phase_name}.jpg"
+        client.put_object(
+            Bucket=S3_BUCKET,
+            Key=key,
+            Body=jpeg_bytes,
+            ContentType="image/jpeg",
+        )
 
     logger.info(f"Saved {len(rendered)} phase frames for swing {swing_id}")
 
@@ -106,39 +142,36 @@ def notify_swing_complete(swing_id: str, user_id: str):
 
 def process_job(job_data: dict, session_factory: sessionmaker):
     swing_id = job_data["swing_id"]
-    video_path = job_data["video_path"]
+    video_key = job_data["video_path"]
     handedness = job_data.get("handedness", "right")
     user_id = job_data.get("user_id", "anonymous")
 
     db = session_factory()
+    local_video_path = None
     try:
-        # Set status to processing
         db.execute(
             text("UPDATE swings SET status = :status WHERE id = :id"),
             {"status": "processing", "id": swing_id},
         )
         db.commit()
 
-        logger.info(f"Processing swing {swing_id}")
-        start = time.time()
+        logger.info(f"Processing swing {swing_id}, downloading from S3: {video_key}")
+        local_video_path = download_video(video_key)
 
+        start = time.time()
         result = analyze_swing(
-            video_path=video_path,
+            video_path=local_video_path,
             user_id=user_id,
             swing_id=swing_id,
             handedness=handedness,
         )
-
         elapsed = time.time() - start
         logger.info(f"Analysis complete for {swing_id} in {elapsed:.1f}s, score={result.overall_score}")
 
         analysis_json = result.model_dump_json()
-
-        # Pre-render phase frames
         analysis_data = json.loads(analysis_json)
-        save_phase_frames(swing_id, video_path, analysis_data)
+        save_phase_frames(swing_id, local_video_path, analysis_data)
 
-        # Update swing with results
         db.execute(
             text(
                 "UPDATE swings SET status = :status, overall_score = :score, "
@@ -170,6 +203,8 @@ def process_job(job_data: dict, session_factory: sessionmaker):
         db.commit()
     finally:
         db.close()
+        if local_video_path and os.path.exists(local_video_path):
+            os.unlink(local_video_path)
 
 
 def main():
@@ -181,6 +216,10 @@ def main():
 
     session_factory, engine = get_db_session()
     logger.info("Connected to database")
+
+    if S3_ENDPOINT:
+        get_s3_client()
+        logger.info(f"Connected to S3: {S3_ENDPOINT}, bucket={S3_BUCKET}")
 
     while not shutdown:
         try:

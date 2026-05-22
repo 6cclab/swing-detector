@@ -13,6 +13,11 @@ type Config struct {
 	MaxUploadMB      int
 	RedisURL         string
 	RedisQueue       string
+	S3Endpoint       string
+	S3Bucket         string
+	S3AccessKey      string
+	S3SecretKey      string
+	S3Region         string
 }
 
 func Load() *Config {
@@ -51,5 +56,10 @@ func Load() *Config {
 		MaxUploadMB:      maxUpload,
 		RedisURL:         redisURL,
 		RedisQueue:       redisQueue,
+		S3Endpoint:       os.Getenv("S3_ENDPOINT"),
+		S3Bucket:         os.Getenv("S3_BUCKET"),
+		S3AccessKey:      os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
+		S3Region:         os.Getenv("S3_REGION"),
 	}
 }

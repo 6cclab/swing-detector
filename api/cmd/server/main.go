@@ -25,7 +25,14 @@ func main() {
 
 	db := database.Connect(cfg.DatabaseURL)
 
-	store := storage.NewLocalStorage(cfg.VideoStoragePath)
+	var store storage.Storage
+	if cfg.S3Endpoint != "" {
+		store = storage.NewS3Storage(cfg.S3Endpoint, cfg.S3Bucket, cfg.S3AccessKey, cfg.S3SecretKey, cfg.S3Region)
+		slog.Info("using S3 storage", "endpoint", cfg.S3Endpoint, "bucket", cfg.S3Bucket)
+	} else {
+		store = storage.NewLocalStorage(cfg.VideoStoragePath)
+		slog.Info("using local storage", "path", cfg.VideoStoragePath)
+	}
 
 	q, err := queue.New(cfg.RedisURL, cfg.RedisQueue)
 	if err != nil {
