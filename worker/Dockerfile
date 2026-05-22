@@ -16,7 +16,7 @@ WORKDIR /app
 ENV MPLCONFIGDIR=/tmp/matplotlib
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 curl && \
+    libgl1 libgles2 libegl1 libglib2.0-0 curl && \
     rm -rf /var/lib/apt/lists/* && \
     useradd -r -u 10001 -s /bin/false appuser
 
