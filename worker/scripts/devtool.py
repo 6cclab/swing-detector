@@ -35,7 +35,9 @@ What it shows:
 import argparse
 import io
 import json
+import os
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, ".")
@@ -156,6 +158,33 @@ def analyze(video_path: str, handedness: str = "right"):
     })
 
 
+def _parse_multipart_file(body: bytes, boundary: bytes, field_name: str) -> tuple:
+    """Extract a file from multipart form data. Returns (filename, data) or (None, None)."""
+    delimiter = b"--" + boundary
+    parts = body.split(delimiter)
+    for part in parts:
+        if b"Content-Disposition" not in part:
+            continue
+        header_end = part.find(b"\r\n\r\n")
+        if header_end == -1:
+            continue
+        header = part[:header_end].decode(errors="ignore")
+        if f'name="{field_name}"' not in header:
+            continue
+        payload = part[header_end + 4:]
+        if payload.endswith(b"\r\n"):
+            payload = payload[:-2]
+        if payload.endswith(b"--"):
+            payload = payload[:-2]
+        if payload.endswith(b"\r\n"):
+            payload = payload[:-2]
+        filename = "upload.mov"
+        if 'filename="' in header:
+            filename = header.split('filename="')[1].split('"')[0]
+        return filename, payload
+    return None, None
+
+
 class DevToolHandler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -168,17 +197,61 @@ class DevToolHandler(BaseHTTPRequestHandler):
         if path == "/":
             self._html()
         elif path == "/api/data":
-            self._json({
-                "timeline": STATE["timeline"],
-                "segments": STATE["segments"],
-                "n_poses": STATE["n_poses"],
-                "duration": STATE["duration"],
-            })
+            if not STATE.get("n_poses"):
+                self._json({"empty": True})
+            else:
+                self._json({
+                    "timeline": STATE["timeline"],
+                    "segments": STATE["segments"],
+                    "n_poses": STATE["n_poses"],
+                    "duration": STATE["duration"],
+                    "video_name": STATE.get("video_name", ""),
+                })
         elif path == "/api/frame":
             idx = int(params.get("idx", [0])[0])
             self._jpeg(idx)
         else:
             self.send_error(404)
+
+    def do_POST(self):
+        if self.path == "/api/upload":
+            self._handle_upload()
+        else:
+            self.send_error(404)
+
+    def _handle_upload(self):
+        content_type = self.headers.get("Content-Type", "")
+        content_length = int(self.headers.get("Content-Length", 0))
+
+        if "multipart/form-data" not in content_type or "boundary=" not in content_type:
+            self._json({"error": "Expected multipart/form-data"})
+            return
+
+        boundary = content_type.split("boundary=")[1].strip().encode()
+        body = self.rfile.read(content_length)
+
+        filename, file_data = _parse_multipart_file(body, boundary, "video")
+        if file_data is None:
+            self._json({"error": "No video file found in upload"})
+            return
+
+        ext = os.path.splitext(filename)[1] or ".mov"
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        tmp.write(file_data)
+        tmp.close()
+
+        size_mb = len(file_data) / 1024 / 1024
+        print(f"\nProcessing uploaded file: {filename} ({size_mb:.1f}MB)")
+        try:
+            analyze(tmp.name, "right")
+            STATE["video_name"] = filename
+            print(f"Ready — {STATE['n_poses']} frames, {len(STATE['segments'])} segments")
+            self._json({"ok": True, "n_poses": STATE["n_poses"]})
+        except Exception as e:
+            print(f"Analysis failed: {e}")
+            self._json({"error": str(e)})
+        finally:
+            os.unlink(tmp.name)
 
     def _json(self, data):
         body = json.dumps(data).encode()
@@ -217,8 +290,8 @@ HTML = """<!DOCTYPE html>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #111; color: #ddd; font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
-#sidebar { width: 340px; border-right: 1px solid #333; padding: 16px; overflow-y: auto; flex-shrink: 0; }
-#main { flex: 1; display: flex; flex-direction: column; }
+#sidebar { width: 340px; border-right: 1px solid #333; padding: 16px; overflow-y: scroll; flex-shrink: 0; max-height: 100vh; }
+#main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 #frame-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; }
 #frame-img { max-width: 100%; max-height: 100%; object-fit: contain; }
 #frame-overlay { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-family: monospace; }
@@ -241,26 +314,54 @@ h2:first-child { margin-top: 0; }
 .stat-val { font-family: monospace; color: #ddd; }
 .keys { font-size: 11px; color: #666; margin-top: 12px; }
 .keys kbd { background: #222; border: 1px solid #444; border-radius: 3px; padding: 1px 5px; font-size: 10px; }
+#landing { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; }
+#drop-zone { width: 400px; height: 240px; border: 2px dashed #444; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+#drop-zone:hover, #drop-zone.drag-over { border-color: #BDB76B; background: rgba(189,183,107,0.05); }
+#drop-zone * { pointer-events: none; }
+#drop-zone .icon { font-size: 48px; opacity: 0.4; }
+#drop-zone .label { color: #888; font-size: 14px; }
+#drop-zone .sublabel { color: #555; font-size: 12px; }
+#loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 100; }
+#loading-overlay .spinner { width: 32px; height: 32px; border: 3px solid #333; border-top-color: #BDB76B; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.open-btn { background: none; border: 1px solid #444; color: #888; padding: 4px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-top: 8px; }
+.open-btn:hover { border-color: #BDB76B; color: #BDB76B; }
+#video-name { color: #BDB76B; font-size: 12px; margin-bottom: 8px; font-family: monospace; }
 </style>
 </head>
 <body>
+<div id="loading-overlay" style="display:none">
+    <div class="spinner"></div>
+    <div style="color:#888;font-size:14px" id="loading-text">Analyzing video...</div>
+</div>
+<input type="file" id="file-input" accept="video/*,.mov,.mp4,.avi,.mkv" style="display:none">
 <div id="sidebar">
+    <div id="video-name"></div>
     <h2>Frame Info</h2>
     <div id="frame-info"></div>
     <h2>Segments</h2>
     <div id="segments"></div>
     <div class="keys">
         <kbd>←</kbd> <kbd>→</kbd> step frames &nbsp;
-        <kbd>Space</kbd> play/pause &nbsp;
-        <kbd>1-9</kbd> jump to segment
+        <kbd>Space</kbd> play/pause<br>
+        <kbd>1-6</kbd> jump to phase &nbsp;
+        <kbd>Shift+1-9</kbd> jump to segment
     </div>
+    <button class="open-btn" id="open-btn" onclick="document.getElementById('file-input').click()">Open another file</button>
 </div>
 <div id="main">
     <div id="frame-container">
-        <img id="frame-img" src="">
-        <div id="frame-overlay"></div>
+        <div id="landing">
+            <div id="drop-zone">
+                <div class="icon">🎬</div>
+                <div class="label">Drop a swing video here</div>
+                <div class="sublabel">or click to browse</div>
+            </div>
+        </div>
+        <img id="frame-img" src="" style="display:none">
+        <div id="frame-overlay" style="display:none"></div>
     </div>
-    <div id="controls">
+    <div id="controls" style="display:none">
         <canvas id="timeline-canvas"></canvas>
         <input type="range" id="scrubber" min="0" max="1" value="0" step="1">
     </div>
@@ -274,16 +375,93 @@ let playTimer = null;
 
 async function init() {
     const res = await fetch('/api/data');
-    data = await res.json();
+    const payload = await res.json();
+
+    if (payload.empty) {
+        showLanding();
+    } else {
+        loadData(payload);
+    }
+
+    const scrubber = document.getElementById('scrubber');
+    scrubber.addEventListener('input', e => goToFrame(+e.target.value));
+    scrubber.addEventListener('change', () => scrubber.blur());
+    document.getElementById('timeline-canvas').addEventListener('click', onTimelineClick);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', () => { if (data) drawTimeline(); });
+
+    // File input
+    document.getElementById('file-input').addEventListener('change', e => {
+        if (e.target.files[0]) uploadFile(e.target.files[0]);
+    });
+
+    // Drop zone
+    const dz = document.getElementById('drop-zone');
+    if (dz) {
+        dz.addEventListener('click', () => document.getElementById('file-input').click());
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+        dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.classList.remove('drag-over');
+            if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+        });
+    }
+
+    // Also allow drop on the whole window when a video is loaded
+    document.body.addEventListener('dragover', e => e.preventDefault());
+    document.body.addEventListener('drop', e => {
+        e.preventDefault();
+        if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+    });
+}
+
+function showLanding() {
+    document.getElementById('landing').style.display = 'flex';
+    document.getElementById('frame-img').style.display = 'none';
+    document.getElementById('frame-overlay').style.display = 'none';
+    document.getElementById('controls').style.display = 'none';
+    document.getElementById('open-btn').style.display = 'none';
+}
+
+function showPlayer() {
+    document.getElementById('landing').style.display = 'none';
+    document.getElementById('frame-img').style.display = '';
+    document.getElementById('frame-overlay').style.display = '';
+    document.getElementById('controls').style.display = '';
+    document.getElementById('open-btn').style.display = '';
+}
+
+async function uploadFile(file) {
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('loading-text').textContent = 'Analyzing ' + file.name + '...';
+
+    const form = new FormData();
+    form.append('video', file);
+
+    try {
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const result = await res.json();
+        if (result.error) {
+            alert('Analysis failed: ' + result.error);
+        } else {
+            const dataRes = await fetch('/api/data');
+            loadData(await dataRes.json());
+        }
+    } catch (e) {
+        alert('Upload failed: ' + e.message);
+    }
+    document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function loadData(payload) {
+    data = payload;
     document.getElementById('scrubber').max = data.n_poses - 1;
+    document.getElementById('video-name').textContent = data.video_name || '';
+    showPlayer();
     renderSegments();
     drawTimeline();
     goToFrame(0);
-
-    document.getElementById('scrubber').addEventListener('input', e => goToFrame(+e.target.value));
-    document.getElementById('timeline-canvas').addEventListener('click', onTimelineClick);
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('resize', drawTimeline);
 }
 
 function goToFrame(idx) {
@@ -435,12 +613,27 @@ document.addEventListener('mousemove', e => { if (draggingTimeline) scrubTimelin
 document.addEventListener('mouseup', () => { draggingTimeline = false; });
 
 function onKey(e) {
-    if (e.key === 'ArrowRight') { e.preventDefault(); goToFrame(currentIdx + 1); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); goToFrame(currentIdx - 1); }
-    else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
-    else if (e.key >= '1' && e.key <= '9') {
-        const seg = data.segments[+e.key - 1];
-        if (seg) goToFrame(seg.start);
+    if (!data) return;
+    const key = e.key;
+    if (key === 'ArrowRight') { e.preventDefault(); goToFrame(currentIdx + 1); }
+    else if (key === 'ArrowLeft') { e.preventDefault(); goToFrame(currentIdx - 1); }
+    else if (key === ' ') { e.preventDefault(); togglePlay(); }
+    else {
+        const num = parseInt(key);
+        if (num >= 1 && num <= 6) {
+            // Jump to phase within current segment
+            const seg = data.segments.find(s => currentIdx >= s.start && currentIdx <= s.end);
+            if (seg && num <= seg.phases.length) {
+                e.preventDefault();
+                const ph = seg.phases[num - 1];
+                goToFrame(Math.floor((ph.start + ph.end) / 2));
+            }
+        }
+        // Shift+number jumps to segment
+        if (e.shiftKey && num >= 1 && num <= data.segments.length) {
+            e.preventDefault();
+            goToFrame(data.segments[num - 1].start);
+        }
     }
 }
 
@@ -465,17 +658,22 @@ init();
 
 def main():
     parser = argparse.ArgumentParser(description="Interactive swing devtool")
-    parser.add_argument("--video", required=True)
+    parser.add_argument("--video", default=None, help="Path to video (optional — can also drop files in the UI)")
     parser.add_argument("--handedness", default="right", choices=["right", "left"])
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
 
-    print(f"Processing {args.video}...")
-    t0 = time.time()
-    analyze(args.video, args.handedness)
-    print(f"Ready in {time.time() - t0:.1f}s — {STATE['n_poses']} frames cached")
+    if args.video:
+        print(f"Processing {args.video}...")
+        t0 = time.time()
+        analyze(args.video, args.handedness)
+        STATE["video_name"] = os.path.basename(args.video)
+        print(f"Ready in {time.time() - t0:.1f}s — {STATE['n_poses']} frames cached")
+    else:
+        print("No video specified — drop a file in the browser to start")
+
     print(f"\n  → http://localhost:{args.port}\n")
-    print("Controls: ←→ step, Space play/pause, 1-9 jump to segment, click timeline to scrub")
+    print("Controls: ←→ step, Space play/pause, 1-9 jump to segment, drag to scrub, drop files to load")
 
     server = HTTPServer(("127.0.0.1", args.port), DevToolHandler)
     try:

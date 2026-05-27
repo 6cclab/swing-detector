@@ -82,6 +82,7 @@ func main() {
 
 	internal := app.Group("/internal")
 	internal.Post("/notify/swing-complete", notifyH.SwingComplete)
+	internal.Post("/notify/scan-complete", notifyH.ScanComplete)
 
 	go func() {
 		slog.Info("starting server", "port", cfg.Port)

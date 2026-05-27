@@ -127,6 +127,28 @@ def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict, hande
     logger.info(f"Saved {len(rendered)} phase frames for swing {swing_id}")
 
 
+def notify_scan_complete(swing_id: str, user_id: str, swing_count: int, timestamps: list):
+    """Notify the API that swing detection (scan) is done, before full analysis."""
+    try:
+        payload = json.dumps({
+            "swing_id": swing_id,
+            "user_id": user_id,
+            "event": "scan_complete",
+            "swing_count": swing_count,
+            "timestamps": timestamps,
+        }).encode()
+        req = urllib.request.Request(
+            f"{API_INTERNAL_URL}/internal/notify/scan-complete",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            logger.info(f"Scan notification sent for swing {swing_id}: {swing_count} swings")
+    except Exception:
+        logger.warning(f"Failed to send scan notification for swing {swing_id}", exc_info=True)
+
+
 def notify_swing_complete(swing_id: str, user_id: str):
     """Call the Go API internal endpoint to send a push notification."""
     try:
@@ -184,11 +206,16 @@ def process_job(job_data: dict, session_factory: sessionmaker):
 
         start = time.time()
         from app.pipeline.orchestrator import analyze_multi_swing
+
+        def on_scan(count, timestamps):
+            notify_scan_complete(swing_id, user_id, count, timestamps)
+
         results = analyze_multi_swing(
             video_path=local_video_path,
             user_id=user_id,
             parent_swing_id=swing_id,
             handedness=handedness,
+            on_scan=on_scan,
         )
         elapsed = time.time() - start
         logger.info(f"Analysis complete for {swing_id} in {elapsed:.1f}s, {len(results)} swing(s) detected")

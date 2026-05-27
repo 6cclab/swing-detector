@@ -47,6 +47,8 @@ def analyze_swing(
     )
 
 
+ScanCallback = None  # type alias for optional callback
+
 def analyze_multi_swing(
     video_path: str,
     user_id: str = "anonymous",
@@ -54,6 +56,7 @@ def analyze_multi_swing(
     handedness: str = "right",
     target_fps: int = 30,
     model_complexity: int = 1,
+    on_scan: "callable | None" = None,
 ) -> list[SwingAnalysisResult]:
     if parent_swing_id is None:
         parent_swing_id = str(uuid.uuid4())
@@ -76,6 +79,15 @@ def analyze_multi_swing(
 
     valid_segments = _validate_segments(segments, pose_frames, handedness)
     logger.info(f"{len(valid_segments)} valid swing(s) after validation")
+
+    if on_scan:
+        fi = max(1, round(extracted.original_fps / target_fps))
+        scan_timestamps = []
+        for s, e in valid_segments:
+            t_start = pose_frames[s].frame_index * fi / extracted.original_fps
+            t_end = pose_frames[e].frame_index * fi / extracted.original_fps
+            scan_timestamps.append({"start": round(t_start, 2), "end": round(t_end, 2)})
+        on_scan(len(valid_segments), scan_timestamps)
 
     if len(valid_segments) == 0 and len(segments) > 1:
         raise ValueError(

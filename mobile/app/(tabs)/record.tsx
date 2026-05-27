@@ -3,7 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
-  Alert,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +15,7 @@ import { IconFlip } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth-context";
 import { apiUpload } from "@/src/lib/api";
 import { showLocalNotification } from "@/src/lib/notifications";
+import { useSwingEvents } from "@/src/lib/use-swing-events";
 
 type CameraFacing = "back" | "front";
 
@@ -26,6 +27,30 @@ export default function RecordScreen() {
   const [recording, setRecording] = useState(false);
   const [facing, setFacing] = useState<CameraFacing>("back");
   const [active, setActive] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const scanOpacity = useRef(new Animated.Value(0)).current;
+
+  const showScanBanner = useCallback((msg: string, duration = 4000) => {
+    setScanMsg(msg);
+    Animated.sequence([
+      Animated.timing(scanOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.delay(duration),
+      Animated.timing(scanOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setScanMsg(null));
+  }, [scanOpacity]);
+
+  useSwingEvents(useCallback((event) => {
+    if (event.type === "scan_complete") {
+      const count = Math.round(event.score || 1);
+      showScanBanner(
+        count === 1
+          ? "1 swing detected — analyzing..."
+          : `${count} swings detected — analyzing...`
+      );
+    } else if (event.type === "swing_update" && event.status === "complete") {
+      showScanBanner(`Swing analysis complete — scored ${Math.round(event.score || 0)}`);
+    }
+  }, [showScanBanner]));
 
   useFocusEffect(
     useCallback(() => {
@@ -55,9 +80,9 @@ export default function RecordScreen() {
     if (!cameraRef.current) return;
     setRecording(true);
     try {
-      const video = await cameraRef.current.recordAsync({ maxDuration: 15 });
+      const video = await cameraRef.current.recordAsync();
       if (video?.uri) {
-        Alert.alert("Swing Uploaded", "You'll get a notification when analysis is ready.");
+        showScanBanner("Uploading swing...", 10000);
         apiUpload<{ swing_id: string }>(
           "/api/swings/upload",
           video.uri,
@@ -71,7 +96,7 @@ export default function RecordScreen() {
         });
       }
     } catch {
-      Alert.alert("Error", "Failed to record video");
+      showScanBanner("Failed to record video");
     } finally {
       setRecording(false);
     }
@@ -93,9 +118,9 @@ export default function RecordScreen() {
     });
     if (!result.canceled && result.assets.length > 0) {
       const count = result.assets.length;
-      Alert.alert(
-        count === 1 ? "Swing Uploaded" : `${count} Swings Uploaded`,
-        "You'll get a notification when each analysis is ready."
+      showScanBanner(
+        count === 1 ? "Uploading swing..." : `Uploading ${count} swings...`,
+        10000
       );
       for (const asset of result.assets) {
         apiUpload<{ swing_id: string }>(
@@ -162,6 +187,13 @@ export default function RecordScreen() {
           {recording ? "Tap to stop" : "Tap to record"}
         </Text>
       </View>
+
+      {/* Scan status banner */}
+      {scanMsg && (
+        <Animated.View style={[styles.scanBanner, { opacity: scanOpacity }]}>
+          <Text style={styles.scanText}>{scanMsg}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -279,6 +311,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#ef4444",
   },
   recordLabel: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  scanBanner: {
+    position: "absolute",
+    bottom: 140,
+    left: 20,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+  },
+  scanText: {
     color: "#fff",
     fontSize: 14,
     fontWeight: "500",

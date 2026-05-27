@@ -85,6 +85,37 @@ func (h *NotifyHandler) SwingComplete(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"sent": true})
 }
 
+type scanCompleteRequest struct {
+	SwingID    string `json:"swing_id"`
+	UserID     string `json:"user_id"`
+	SwingCount int    `json:"swing_count"`
+	Timestamps []struct {
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+	} `json:"timestamps"`
+}
+
+func (h *NotifyHandler) ScanComplete(c *fiber.Ctx) error {
+	var body scanCompleteRequest
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	timestamps := make([]map[string]float64, len(body.Timestamps))
+	for i, ts := range body.Timestamps {
+		timestamps[i] = map[string]float64{"start": ts.Start, "end": ts.End}
+	}
+
+	PublishSwingEvent(h.rdb, body.UserID, SwingEvent{
+		Type:    "scan_complete",
+		SwingID: body.SwingID,
+		Status:  "scanning",
+		Score:   float64(body.SwingCount),
+	})
+
+	return c.JSON(fiber.Map{"sent": true})
+}
+
 func sendExpoPush(token, title, body string, data map[string]string) error {
 	payload := map[string]any{
 		"to":    token,
