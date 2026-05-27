@@ -34,7 +34,7 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 REDIS_QUEUE = os.environ.get("REDIS_QUEUE", "swing:analyze")
 DATABASE_URL = os.environ.get("DATABASE_URL", settings.database_url)
 API_INTERNAL_URL = os.environ.get(
-    "API_INTERNAL_URL", "http://swing-detector-api.swing-detector.svc:8000"
+    "API_INTERNAL_URL", "http://swing-detector-api.swing-detector.svc"
 )
 
 S3_ENDPOINT = os.environ.get("S3_ENDPOINT", "")
