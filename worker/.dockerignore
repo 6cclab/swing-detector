@@ -1,0 +1,15 @@
+.git
+__pycache__
+*.pyc
+.pytest_cache
+tests/
+*.egg-info
+.venv
+uploads/
+checkpoints/
+*.mp4
+*.avi
+*.mov
+docker-compose.yaml
+uv.lock
+scripts/

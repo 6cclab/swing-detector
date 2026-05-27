@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.12-slim AS builder
 
 WORKDIR /app
@@ -7,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --prefix=/install -r requirements.txt
 
 FROM python:3.12-slim
 
@@ -22,9 +24,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
-RUN mkdir -p /app/models && \
-    curl -sL -o /app/models/pose_landmarker_full.task \
-    "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task"
+RUN --mount=type=cache,target=/tmp/model-cache \
+    mkdir -p /app/models && \
+    if [ -f /tmp/model-cache/pose_landmarker_full.task ]; then \
+      cp /tmp/model-cache/pose_landmarker_full.task /app/models/; \
+    else \
+      curl -sL -o /app/models/pose_landmarker_full.task \
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task" && \
+      cp /app/models/pose_landmarker_full.task /tmp/model-cache/; \
+    fi
 
 COPY . .
 
