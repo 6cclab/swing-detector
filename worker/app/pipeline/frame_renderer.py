@@ -70,6 +70,7 @@ def render_key_frames(
     phase_key_frames: dict[str, int],
     max_width: int = 640,
     handedness: str = "right",
+    target_fps: int = 30,
 ) -> dict[str, bytes]:
     """Render skeleton overlay on key frames for each phase.
 
@@ -82,6 +83,11 @@ def render_key_frames(
     if not cap.isOpened():
         return {}
 
+    original_fps = cap.get(cv2.CAP_PROP_FPS)
+    if original_fps <= 0:
+        original_fps = 30.0
+    frame_interval = max(1, round(original_fps / target_fps))
+
     landmarks_by_frame: dict[int, list[Landmark]] = {}
     for pf in pose_frames_data:
         idx = pf["frame_index"]
@@ -90,7 +96,8 @@ def render_key_frames(
     results: dict[str, bytes] = {}
 
     for phase, frame_idx in phase_key_frames.items():
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        video_frame_idx = frame_idx * frame_interval
+        cap.set(cv2.CAP_PROP_POS_FRAMES, video_frame_idx)
         ret, frame = cap.read()
         if not ret:
             continue

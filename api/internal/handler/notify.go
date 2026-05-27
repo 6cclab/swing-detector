@@ -50,13 +50,20 @@ func (h *NotifyHandler) SwingComplete(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Swing not found"})
 	}
 
-	scoreText := "complete"
-	if swing.OverallScore != nil {
-		scoreText = fmt.Sprintf("scored %.0f", *swing.OverallScore)
+	var title, message string
+	if swing.Status == "failed" {
+		title = "Swing Analysis Failed"
+		message = "Something went wrong analyzing your swing. Tap to try again."
+	} else {
+		scoreText := "complete"
+		if swing.OverallScore != nil {
+			scoreText = fmt.Sprintf("scored %.0f", *swing.OverallScore)
+		}
+		title = "Swing Analysis Complete"
+		message = fmt.Sprintf("Your swing %s. Tap to see details.", scoreText)
 	}
 
-	if err := sendExpoPush(user.ExpoPushToken, "Swing Analysis Complete",
-		fmt.Sprintf("Your swing %s. Tap to see details.", scoreText),
+	if err := sendExpoPush(user.ExpoPushToken, title, message,
 		map[string]string{"swing_id": body.SwingID, "screen": "swing"},
 	); err != nil {
 		slog.Error("failed to send push notification", "err", err, "user_id", body.UserID)

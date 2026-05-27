@@ -3,7 +3,6 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -15,6 +14,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { IconFlip } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth-context";
 import { apiUpload } from "@/src/lib/api";
+import { showLocalNotification } from "@/src/lib/notifications";
 
 type CameraFacing = "back" | "front";
 
@@ -24,7 +24,6 @@ export default function RecordScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [recording, setRecording] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [facing, setFacing] = useState<CameraFacing>("back");
   const [active, setActive] = useState(false);
 
@@ -85,35 +84,20 @@ export default function RecordScreen() {
     }
   };
 
-  const uploadVideo = async (uri: string) => {
-    setUploading(true);
-    try {
-      const res = await apiUpload<{ swing_id: string }>(
-        "/api/swings/upload",
-        uri,
-        "swing.mp4",
-        { handedness: user?.handedness || "right" }
-      );
-      router.push(`/swing/${res.swing_id}`);
-    } catch (e: unknown) {
-      Alert.alert(
+  const uploadVideo = (uri: string) => {
+    Alert.alert("Swing Uploaded", "You'll get a notification when analysis is ready.");
+    apiUpload<{ swing_id: string }>(
+      "/api/swings/upload",
+      uri,
+      "swing.mp4",
+      { handedness: user?.handedness || "right" }
+    ).catch(() => {
+      showLocalNotification(
         "Upload Failed",
-        e instanceof Error ? e.message : "Unknown error"
+        "Your swing couldn't be uploaded. Please try again."
       );
-    } finally {
-      setUploading(false);
-    }
+    });
   };
-
-  if (uploading) {
-    return (
-      <View style={styles.uploadingContainer}>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.uploadingText}>Uploading swing...</Text>
-        <Text style={styles.uploadingHint}>This may take a moment</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -202,23 +186,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
-  },
-  uploadingContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 12,
-  },
-  uploadingText: {
-    color: "#fff",
-    fontSize: 17,
-    fontWeight: "500",
-    marginTop: 8,
-  },
-  uploadingHint: {
-    color: "rgba(255,255,255,0.55)",
-    fontSize: 13,
   },
   topControls: {
     position: "absolute",

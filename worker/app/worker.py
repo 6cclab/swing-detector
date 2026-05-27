@@ -202,6 +202,7 @@ def process_job(job_data: dict, session_factory: sessionmaker):
             },
         )
         db.commit()
+        notify_swing_complete(swing_id, user_id)
     finally:
         db.close()
         if local_video_path and os.path.exists(local_video_path):
