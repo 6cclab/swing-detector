@@ -89,8 +89,10 @@ def detect_phases(
 
     # 2. Find top of backswing: frame with highest lead wrist y-position
     #    (in image coords, lower y = higher position)
-    #    Search from address_end to 70% of the video
-    search_end = min(int(n * 0.7), n)
+    #    Search must end before the velocity peak (impact area) so follow-through
+    #    frames don't get picked — the wrist goes higher in follow-through.
+    velocity_peak = int(np.argmax(wrist_vel))
+    search_end = max(velocity_peak, address_end + 2)
     backswing_region = wrist_pos[address_end:search_end, 1]
     if len(backswing_region) > 0:
         top_idx = address_end + int(np.argmin(backswing_region))
