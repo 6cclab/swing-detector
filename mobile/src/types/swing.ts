@@ -9,6 +9,8 @@ export type SwingSummary = {
   status: string;
   overall_score: number | null;
   handedness: string;
+  source_swing_id?: string;
+  swing_index?: number;
 };
 
 export type SwingListResponse = {

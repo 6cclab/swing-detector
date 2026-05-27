@@ -135,17 +135,17 @@ func (h *SwingHandler) List(c *fiber.Ctx) error {
 		page = 1
 	}
 
-	var total int64
-	h.db.Model(&models.Swing{}).Where("user_id = ?", userID).Count(&total)
-
 	// Auto-fail swings stuck in pending/processing for over 5 minutes
 	stuckCutoff := time.Now().Add(-5 * time.Minute)
 	h.db.Model(&models.Swing{}).
 		Where("user_id = ? AND status IN ? AND created_at < ?", userID, []string{"pending", "processing"}, stuckCutoff).
 		Updates(map[string]any{"status": "failed", "error_message": "Analysis timed out"})
 
+	var total int64
+	h.db.Model(&models.Swing{}).Where("user_id = ? AND status != ?", userID, "split").Count(&total)
+
 	var swings []models.Swing
-	h.db.Where("user_id = ?", userID).
+	h.db.Where("user_id = ? AND status != ?", userID, "split").
 		Order("created_at DESC").
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
@@ -154,11 +154,13 @@ func (h *SwingHandler) List(c *fiber.Ctx) error {
 	items := make([]models.SwingSummary, len(swings))
 	for i, s := range swings {
 		items[i] = models.SwingSummary{
-			ID:           s.ID,
-			CreatedAt:    s.CreatedAt,
-			Status:       s.Status,
-			OverallScore: s.OverallScore,
-			Handedness:   s.Handedness,
+			ID:            s.ID,
+			CreatedAt:     s.CreatedAt,
+			Status:        s.Status,
+			OverallScore:  s.OverallScore,
+			Handedness:    s.Handedness,
+			SourceSwingID: s.SourceSwingID,
+			SwingIndex:    s.SwingIndex,
 		}
 	}
 

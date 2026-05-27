@@ -57,7 +57,18 @@ export default function RecordScreen() {
     try {
       const video = await cameraRef.current.recordAsync({ maxDuration: 15 });
       if (video?.uri) {
-        await uploadVideo(video.uri);
+        Alert.alert("Swing Uploaded", "You'll get a notification when analysis is ready.");
+        apiUpload<{ swing_id: string }>(
+          "/api/swings/upload",
+          video.uri,
+          `swing_${Date.now()}.mp4`,
+          { handedness: user?.handedness || "right" }
+        ).catch(() => {
+          showLocalNotification(
+            "Upload Failed",
+            "Your swing couldn't be uploaded. Please try again."
+          );
+        });
       }
     } catch {
       Alert.alert("Error", "Failed to record video");
@@ -78,25 +89,28 @@ export default function RecordScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["videos"],
       quality: 1,
+      allowsMultipleSelection: true,
     });
-    if (!result.canceled && result.assets[0]) {
-      await uploadVideo(result.assets[0].uri);
-    }
-  };
-
-  const uploadVideo = (uri: string) => {
-    Alert.alert("Swing Uploaded", "You'll get a notification when analysis is ready.");
-    apiUpload<{ swing_id: string }>(
-      "/api/swings/upload",
-      uri,
-      "swing.mp4",
-      { handedness: user?.handedness || "right" }
-    ).catch(() => {
-      showLocalNotification(
-        "Upload Failed",
-        "Your swing couldn't be uploaded. Please try again."
+    if (!result.canceled && result.assets.length > 0) {
+      const count = result.assets.length;
+      Alert.alert(
+        count === 1 ? "Swing Uploaded" : `${count} Swings Uploaded`,
+        "You'll get a notification when each analysis is ready."
       );
-    });
+      for (const asset of result.assets) {
+        apiUpload<{ swing_id: string }>(
+          "/api/swings/upload",
+          asset.uri,
+          `swing_${Date.now()}.mp4`,
+          { handedness: user?.handedness || "right" }
+        ).catch(() => {
+          showLocalNotification(
+            "Upload Failed",
+            "One of your swings couldn't be uploaded. Please try again."
+          );
+        });
+      }
+    }
   };
 
   return (

@@ -143,6 +143,27 @@ def notify_swing_complete(swing_id: str, user_id: str):
         logger.warning(f"Failed to send notification for swing {swing_id}", exc_info=True)
 
 
+def _save_result(db, swing_id: str, user_id: str, result, video_path: str, handedness: str):
+    analysis_json = result.model_dump_json()
+    analysis_data = json.loads(analysis_json)
+    save_phase_frames(swing_id, video_path, analysis_data, handedness)
+
+    db.execute(
+        text(
+            "UPDATE swings SET status = :status, overall_score = :score, "
+            "analysis_json = :json WHERE id = :id"
+        ),
+        {
+            "status": "complete",
+            "score": result.overall_score,
+            "json": analysis_json,
+            "id": swing_id,
+        },
+    )
+    db.commit()
+    notify_swing_complete(swing_id, user_id)
+
+
 def process_job(job_data: dict, session_factory: sessionmaker):
     swing_id = job_data["swing_id"]
     video_key = job_data["video_path"]
@@ -162,34 +183,46 @@ def process_job(job_data: dict, session_factory: sessionmaker):
         local_video_path = download_video(video_key)
 
         start = time.time()
-        result = analyze_swing(
+        from app.pipeline.orchestrator import analyze_multi_swing
+        results = analyze_multi_swing(
             video_path=local_video_path,
             user_id=user_id,
-            swing_id=swing_id,
+            parent_swing_id=swing_id,
             handedness=handedness,
         )
         elapsed = time.time() - start
-        logger.info(f"Analysis complete for {swing_id} in {elapsed:.1f}s, score={result.overall_score}")
+        logger.info(f"Analysis complete for {swing_id} in {elapsed:.1f}s, {len(results)} swing(s) detected")
 
-        analysis_json = result.model_dump_json()
-        analysis_data = json.loads(analysis_json)
-        save_phase_frames(swing_id, local_video_path, analysis_data, handedness)
+        if len(results) == 1:
+            _save_result(db, swing_id, user_id, results[0], local_video_path, handedness)
+        else:
+            db.execute(
+                text("UPDATE swings SET status = :status WHERE id = :id"),
+                {"status": "split", "id": swing_id},
+            )
+            db.commit()
 
-        db.execute(
-            text(
-                "UPDATE swings SET status = :status, overall_score = :score, "
-                "analysis_json = :json WHERE id = :id"
-            ),
-            {
-                "status": "complete",
-                "score": result.overall_score,
-                "json": analysis_json,
-                "id": swing_id,
-            },
-        )
-        db.commit()
-
-        notify_swing_complete(swing_id, user_id)
+            for i, result in enumerate(results):
+                child_id = result.swing_id
+                db.execute(
+                    text(
+                        "INSERT INTO swings (id, user_id, video_path, handedness, status, "
+                        "source_swing_id, swing_index, created_at) "
+                        "VALUES (:id, :user_id, :video_path, :handedness, 'processing', "
+                        ":source_id, :idx, now())"
+                    ),
+                    {
+                        "id": child_id,
+                        "user_id": user_id,
+                        "video_path": video_key,
+                        "handedness": handedness,
+                        "source_id": swing_id,
+                        "idx": i + 1,
+                    },
+                )
+                db.commit()
+                _save_result(db, child_id, user_id, result, local_video_path, handedness)
+                logger.info(f"Saved child swing {child_id} ({i + 1}/{len(results)})")
 
     except Exception as e:
         logger.exception(f"Failed to process swing {swing_id}")

@@ -7,8 +7,9 @@ from app.pipeline.coaching_engine import generate_coaching_summary, generate_coa
 from app.pipeline.metrics_engine import aggregate_phase_angles
 from app.pipeline.phase_detector import detect_phases
 from app.pipeline.pose_estimator import estimate_poses
+from app.pipeline.swing_splitter import detect_swing_boundaries
 from app.pipeline.video_processor import extract_frames
-from app.schemas.analysis import DetectedFault, SwingAnalysisResult, SwingPhaseResult
+from app.schemas.analysis import DetectedFault, PoseFrame, SwingAnalysisResult, SwingPhaseResult
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,7 @@ def analyze_swing(
     if swing_id is None:
         swing_id = str(uuid.uuid4())
 
-    # 1. Extract frames from video
     extracted = extract_frames(video_path, target_fps=target_fps)
-
-    # 2. Run pose estimation on all frames
     pose_frames = estimate_poses(
         extracted.frames,
         extracted.timestamps_ms,
@@ -40,11 +38,132 @@ def analyze_swing(
             "Ensure the golfer is clearly visible in the video."
         )
 
-    # 3. Detect swing phases — rule-based detector
-    # ML classifier disabled: produces degenerate results (collapses phases)
+    return _analyze_from_poses(
+        pose_frames=pose_frames,
+        timestamps_ms=extracted.timestamps_ms,
+        swing_id=swing_id,
+        user_id=user_id,
+        handedness=handedness,
+    )
+
+
+def analyze_multi_swing(
+    video_path: str,
+    user_id: str = "anonymous",
+    parent_swing_id: str | None = None,
+    handedness: str = "right",
+    target_fps: int = 30,
+    model_complexity: int = 1,
+) -> list[SwingAnalysisResult]:
+    if parent_swing_id is None:
+        parent_swing_id = str(uuid.uuid4())
+
+    extracted = extract_frames(video_path, target_fps=target_fps)
+    pose_frames = estimate_poses(
+        extracted.frames,
+        extracted.timestamps_ms,
+        model_complexity=model_complexity,
+    )
+
+    if len(pose_frames) < 10:
+        raise ValueError(
+            f"Only {len(pose_frames)} frames had detectable poses. "
+            "Ensure the golfer is clearly visible in the video."
+        )
+
+    segments = detect_swing_boundaries(pose_frames, handedness=handedness)
+    logger.info(f"Detected {len(segments)} raw segment(s) in video")
+
+    valid_segments = _validate_segments(segments, pose_frames, handedness)
+    logger.info(f"{len(valid_segments)} valid swing(s) after validation")
+
+    if len(valid_segments) == 0 and len(segments) > 1:
+        raise ValueError(
+            "No valid full swings detected in this video. "
+            "Ensure the camera captures your full body during the swing "
+            "and each swing includes a clear setup, backswing, and follow-through."
+        )
+
+    if len(valid_segments) <= 1:
+        result = _analyze_from_poses(
+            pose_frames=pose_frames if len(valid_segments) == 0 else pose_frames[valid_segments[0][0]:valid_segments[0][1] + 1],
+            timestamps_ms=extracted.timestamps_ms if len(valid_segments) == 0 else extracted.timestamps_ms[valid_segments[0][0]:valid_segments[0][1] + 1],
+            swing_id=parent_swing_id,
+            user_id=user_id,
+            handedness=handedness,
+        )
+        return [result]
+
+    results = []
+    for i, (start, end) in enumerate(valid_segments):
+        segment_poses = pose_frames[start:end + 1]
+        segment_ts = extracted.timestamps_ms[start:end + 1] if extracted.timestamps_ms else []
+        child_id = str(uuid.uuid4())
+        logger.info(f"Analyzing segment {i + 1}/{len(valid_segments)}: frames {start}-{end} ({len(segment_poses)} poses)")
+
+        result = _analyze_from_poses(
+            pose_frames=segment_poses,
+            timestamps_ms=segment_ts,
+            swing_id=child_id,
+            user_id=user_id,
+            handedness=handedness,
+        )
+        results.append(result)
+
+    return results
+
+
+MIN_ADDRESS_FRAMES = 20
+MIN_BACKSWING_FRAMES = 10
+MIN_SWING_CORE_FRAMES = 20
+
+
+def _validate_segments(
+    segments: list[tuple[int, int]],
+    pose_frames: list[PoseFrame],
+    handedness: str,
+) -> list[tuple[int, int]]:
+    """Discard segments that don't have a valid full swing structure."""
+    valid = []
+    for start, end in segments:
+        seg = pose_frames[start:end + 1]
+        if len(seg) < 10:
+            continue
+        try:
+            phases = detect_phases(seg, handedness)
+            phase_map = {p.phase: p for p in phases}
+
+            addr = phase_map.get("address")
+            if not addr or (addr.end_frame - addr.start_frame + 1) < MIN_ADDRESS_FRAMES:
+                continue
+
+            bs = phase_map.get("backswing")
+            if not bs or (bs.end_frame - bs.start_frame + 1) < MIN_BACKSWING_FRAMES:
+                continue
+
+            core_phases = ["backswing", "top_of_backswing", "downswing", "impact"]
+            core_frames = sum(
+                (phase_map[p].end_frame - phase_map[p].start_frame + 1)
+                for p in core_phases if p in phase_map
+            )
+            if core_frames < MIN_SWING_CORE_FRAMES:
+                continue
+
+            valid.append((start, end))
+        except ValueError:
+            continue
+    return valid
+
+
+def _analyze_from_poses(
+    pose_frames: list[PoseFrame],
+    timestamps_ms: list[float],
+    swing_id: str,
+    user_id: str,
+    handedness: str = "right",
+) -> SwingAnalysisResult:
     phases = detect_phases(pose_frames, handedness=handedness)
 
-    # 4. For each phase, compute angles, compare to benchmarks, generate feedback
     phase_results: list[SwingPhaseResult] = []
     phase_feedbacks = []
 
@@ -71,7 +190,6 @@ def analyze_swing(
             )
         )
 
-    # 5. Compute overall score — use ML scorer if trained, else average phase scores
     ml_score = None
     try:
         from app.ml.inference import ml_score_quality
@@ -88,7 +206,6 @@ def analyze_swing(
     else:
         overall_score = 0.0
 
-    # 6. Detect faults using ML model if available
     detected_faults = None
     try:
         from app.ml.inference import ml_detect_faults
@@ -98,7 +215,6 @@ def analyze_swing(
     except ImportError:
         pass
 
-    # 7. Compute swing embedding if model available
     swing_embedding = None
     try:
         from app.ml.inference import ml_compute_embedding
@@ -106,18 +222,15 @@ def analyze_swing(
     except ImportError:
         pass
 
-    # 8. Generate prioritized coaching summary
     coaching_summary = generate_coaching_summary(phase_feedbacks)
 
-    # Add fault-based coaching tips if faults detected
     if detected_faults:
         fault_tips = _faults_to_coaching_tips(detected_faults)
         coaching_summary = fault_tips + coaching_summary
-        coaching_summary = coaching_summary[:7]  # keep top 7
+        coaching_summary = coaching_summary[:7]
 
-    # 9. Compute duration
-    if extracted.timestamps_ms:
-        duration_ms = extracted.timestamps_ms[-1] - extracted.timestamps_ms[0]
+    if timestamps_ms:
+        duration_ms = timestamps_ms[-1] - timestamps_ms[0]
     else:
         duration_ms = 0.0
 

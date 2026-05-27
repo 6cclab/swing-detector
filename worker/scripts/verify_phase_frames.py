@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
-"""Render phase frames and verify each image matches its label using Claude vision."""
+"""Render phase frames and optionally verify with Claude vision.
+
+Runs analysis, renders skeleton-overlay frames for each phase, saves to disk,
+and optionally sends them to Claude for automated verification.
+
+Usage:
+    cd worker
+    uv run python scripts/verify_phase_frames.py --video path/to/video.mov --output-dir /tmp/frames
+    uv run python scripts/verify_phase_frames.py --video path/to/video.mov --skip-verify
+
+Options:
+    --video         Path to a .mov/.mp4 swing video (required)
+    --handedness    right (default) or left
+    --output-dir    Directory to save rendered JPEG frames
+    --skip-verify   Skip Claude API verification (just render and save)
+"""
 import argparse
 import base64
 import json

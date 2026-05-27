@@ -163,7 +163,11 @@ export default function HistoryScreen() {
                       </View>
                       <View style={styles.swingMeta}>
                         <Text style={[styles.swingLabel, { color: theme.text }]}>
-                          {isPending ? `Swing (${swing.status})` : "Swing"}
+                          {isPending
+                            ? `Swing (${swing.status})`
+                            : swing.swing_index
+                              ? `Swing ${swing.swing_index}`
+                              : "Swing"}
                         </Text>
                         <Text style={[styles.swingDetail, { color: theme.textMuted }]}>
                           {fmtTime(swing.dateObj)} · {swing.handedness}

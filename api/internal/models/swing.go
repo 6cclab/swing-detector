@@ -3,15 +3,17 @@ package models
 import "time"
 
 type Swing struct {
-	ID           string    `gorm:"type:text;primaryKey" json:"id"`
-	UserID       string    `gorm:"type:text;not null;index" json:"user_id"`
-	CreatedAt    time.Time `json:"created_at"`
-	Status       string    `gorm:"default:pending" json:"status"`
-	VideoPath    string    `gorm:"not null" json:"video_path"`
-	Handedness   string    `gorm:"default:right" json:"handedness"`
-	AnalysisJSON *string   `gorm:"column:analysis_json;type:text" json:"-"`
-	OverallScore *float64  `gorm:"column:overall_score" json:"overall_score"`
-	ErrorMessage *string   `gorm:"column:error_message" json:"error_message"`
+	ID            string    `gorm:"type:text;primaryKey" json:"id"`
+	UserID        string    `gorm:"type:text;not null;index" json:"user_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	Status        string    `gorm:"default:pending" json:"status"`
+	VideoPath     string    `gorm:"not null" json:"video_path"`
+	Handedness    string    `gorm:"default:right" json:"handedness"`
+	AnalysisJSON  *string   `gorm:"column:analysis_json;type:text" json:"-"`
+	OverallScore  *float64  `gorm:"column:overall_score" json:"overall_score"`
+	ErrorMessage  *string   `gorm:"column:error_message" json:"error_message"`
+	SourceSwingID *string   `gorm:"column:source_swing_id" json:"source_swing_id,omitempty"`
+	SwingIndex    *int      `gorm:"column:swing_index" json:"swing_index,omitempty"`
 }
 
 type SwingUploadResponse struct {
@@ -20,11 +22,13 @@ type SwingUploadResponse struct {
 }
 
 type SwingSummary struct {
-	ID           string    `json:"id"`
-	CreatedAt    time.Time `json:"created_at"`
-	Status       string    `json:"status"`
-	OverallScore *float64  `json:"overall_score"`
-	Handedness   string    `json:"handedness"`
+	ID            string    `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	Status        string    `json:"status"`
+	OverallScore  *float64  `json:"overall_score"`
+	Handedness    string    `json:"handedness"`
+	SourceSwingID *string   `json:"source_swing_id,omitempty"`
+	SwingIndex    *int      `json:"swing_index,omitempty"`
 }
 
 type SwingListResponse struct {

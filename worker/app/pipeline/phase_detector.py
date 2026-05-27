@@ -99,8 +99,16 @@ def detect_phases(
     else:
         top_idx = n // 3
 
-    # 3. Find impact: velocity peak after top of backswing
-    impact_idx = max(velocity_peak, top_idx + 2)
+    # 3. Find impact: max deceleration in tight window after velocity peak
+    #    Ball strike causes sharp hand deceleration 1-3 frames after peak speed
+    accel = np.diff(wrist_vel)
+    decel_start = velocity_peak
+    decel_end = min(len(accel), velocity_peak + 5)
+    if decel_start < decel_end:
+        impact_idx = decel_start + int(np.argmin(accel[decel_start:decel_end])) + 1
+    else:
+        impact_idx = velocity_peak
+    impact_idx = max(impact_idx, top_idx + 2)
 
     # 4. Downswing is between top and impact
     # 5. Backswing is between address_end and top

@@ -1,0 +1,2 @@
+ALTER TABLE swings ADD COLUMN IF NOT EXISTS source_swing_id TEXT REFERENCES swings(id);
+ALTER TABLE swings ADD COLUMN IF NOT EXISTS swing_index INTEGER;
