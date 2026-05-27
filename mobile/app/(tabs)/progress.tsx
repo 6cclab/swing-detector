@@ -21,6 +21,7 @@ import {
   Sparkline,
 } from "@/src/components/ui";
 import { apiGet, apiDelete } from "@/src/lib/api";
+import { useSwingEvents } from "@/src/lib/use-swing-events";
 import { scoreSeverity, typography, useTheme } from "@/src/lib/theme";
 import type { SwingListResponse, SwingSummary } from "@/src/types/swing";
 import type { SwingAnalysisResult } from "@/src/types/analysis";
@@ -53,45 +54,40 @@ export default function ProgressScreen() {
 
   const [pendingSwings, setPendingSwings] = useState<SwingSummary[]>([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
+  const fetchSwings = useCallback(async () => {
+    try {
+      const res = await apiGet<SwingListResponse>("/api/swings?page=1&page_size=20");
+      const pending = res.items.filter(
+        (s) => s.status === "pending" || s.status === "processing"
+      );
+      const rows: SwingRow[] = res.items
+        .filter((s) => s.status === "complete" && s.overall_score != null)
+        .map((s) => ({
+          id: s.id,
+          date: new Date(s.created_at),
+          score: s.overall_score!,
+          label: "Swing",
+          club: s.handedness === "right" ? "Right" : "Left",
+        }));
+
+      setSwings(rows);
+      setPendingSwings(pending);
+
+      if (rows.length > 0) {
         try {
-          const res = await apiGet<SwingListResponse>("/api/swings?page=1&page_size=20");
-          const pending = res.items.filter(
-            (s) => s.status === "pending" || s.status === "processing"
-          );
-          const rows: SwingRow[] = res.items
-            .filter((s) => s.status === "complete" && s.overall_score != null)
-            .map((s) => ({
-              id: s.id,
-              date: new Date(s.created_at),
-              score: s.overall_score!,
-              label: "Swing",
-              club: s.handedness === "right" ? "Right" : "Left",
-            }));
-
-          if (!cancelled) {
-            setSwings(rows);
-            setPendingSwings(pending);
-          }
-
-          // Fetch latest analysis for phase scores
-          if (rows.length > 0) {
-            try {
-              const analysis = await apiGet<SwingAnalysisResult>(`/api/swings/${rows[0].id}`);
-              if (!cancelled && "phases_detected" in analysis) {
-                setLatestAnalysis(analysis);
-              }
-            } catch { /* ignore */ }
+          const analysis = await apiGet<SwingAnalysisResult>(`/api/swings/${rows[0].id}`);
+          if ("phases_detected" in analysis) {
+            setLatestAnalysis(analysis);
           }
         } catch { /* ignore */ }
-        if (!cancelled) setLoading(false);
-      })();
-      return () => { cancelled = true; };
-    }, [])
-  );
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, []);
+
+  useFocusEffect(useCallback(() => { fetchSwings(); }, [fetchSwings]));
+
+  useSwingEvents(useCallback(() => { fetchSwings(); }, [fetchSwings]));
 
   if (loading) {
     return (
@@ -147,7 +143,7 @@ export default function ProgressScreen() {
   const scores = swings.map((s) => s.score).reverse();
   const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   const bestScore = Math.max(...scores);
-  const delta = swings.length >= 2 ? latest.score - swings[1].score : 0;
+  const delta = swings.length >= 2 ? Math.round((latest.score - swings[1].score) * 10) / 10 : 0;
 
   // Phase bars from latest analysis
   const phaseData = latestAnalysis
@@ -173,6 +169,23 @@ export default function ProgressScreen() {
           {swings.length} swings logged
         </Text>
       </View>
+
+      {/* Processing Swings */}
+      {pendingSwings.length > 0 && (
+        <Card style={styles.pendingCard}>
+          <View style={styles.pendingRow}>
+            <ActivityIndicator size="small" color={theme.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.pendingTitle, { color: theme.text }]}>
+                {pendingSwings.length === 1 ? "Analyzing your swing..." : `Analyzing ${pendingSwings.length} swings...`}
+              </Text>
+              <Text style={[styles.pendingHint, { color: theme.textMuted }]}>
+                You'll get a notification when ready
+              </Text>
+            </View>
+          </View>
+        </Card>
+      )}
 
       {/* Hero Score Card */}
       <Card style={styles.heroCard}>
@@ -210,23 +223,6 @@ export default function ProgressScreen() {
           <Sparkline data={scores} height={56} />
         </View>
       </Card>
-
-      {/* Processing Swings */}
-      {pendingSwings.length > 0 && (
-        <Card style={styles.pendingCard}>
-          <View style={styles.pendingRow}>
-            <ActivityIndicator size="small" color={theme.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.pendingTitle, { color: theme.text }]}>
-                {pendingSwings.length === 1 ? "Analyzing your swing..." : `Analyzing ${pendingSwings.length} swings...`}
-              </Text>
-              <Text style={[styles.pendingHint, { color: theme.textMuted }]}>
-                You'll get a notification when ready
-              </Text>
-            </View>
-          </View>
-        </Card>
-      )}
 
       {/* Phase Bars */}
       {phaseData.length > 0 && (

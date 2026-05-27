@@ -44,7 +44,8 @@ func main() {
 	authH := handler.NewAuthHandler(db, []byte(cfg.JWTSecret))
 	swingH := handler.NewSwingHandler(db, store, q)
 	progressH := handler.NewProgressHandler(db)
-	notifyH := handler.NewNotifyHandler(db)
+	notifyH := handler.NewNotifyHandler(db, q.Client())
+	eventsH := handler.NewEventsHandler(q.Client())
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: cfg.MaxUploadMB * 1024 * 1024,
@@ -70,6 +71,7 @@ func main() {
 
 	swings := api.Group("/swings")
 	swings.Post("/upload", swingH.Upload)
+	swings.Get("/events/stream", eventsH.Stream)
 	swings.Get("/", swingH.List)
 	swings.Get("/:id", swingH.Get)
 	swings.Delete("/:id", swingH.Delete)

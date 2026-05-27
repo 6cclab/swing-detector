@@ -10,6 +10,7 @@ export {
   IconChevRight,
   IconClock,
   IconDrills,
+  IconExpand,
   IconFlip,
   IconList,
   IconLogout,

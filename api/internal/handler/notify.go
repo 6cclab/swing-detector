@@ -8,17 +8,19 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/6cclab/swing-detector/api/internal/models"
 )
 
 type NotifyHandler struct {
-	db *gorm.DB
+	db  *gorm.DB
+	rdb *redis.Client
 }
 
-func NewNotifyHandler(db *gorm.DB) *NotifyHandler {
-	return &NotifyHandler{db: db}
+func NewNotifyHandler(db *gorm.DB, rdb *redis.Client) *NotifyHandler {
+	return &NotifyHandler{db: db, rdb: rdb}
 }
 
 type swingCompleteRequest struct {
@@ -67,8 +69,18 @@ func (h *NotifyHandler) SwingComplete(c *fiber.Ctx) error {
 		map[string]string{"swing_id": body.SwingID, "screen": "swing"},
 	); err != nil {
 		slog.Error("failed to send push notification", "err", err, "user_id", body.UserID)
-		return c.Status(502).JSON(fiber.Map{"error": "Failed to send notification"})
 	}
+
+	score := 0.0
+	if swing.OverallScore != nil {
+		score = *swing.OverallScore
+	}
+	PublishSwingEvent(h.rdb, body.UserID, SwingEvent{
+		Type:    "swing_update",
+		SwingID: body.SwingID,
+		Status:  swing.Status,
+		Score:   score,
+	})
 
 	return c.JSON(fiber.Map{"sent": true})
 }

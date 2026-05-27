@@ -26,7 +26,7 @@ export function ScoreRing({ score, size = 140, strokeWidth = 10, label }: ScoreR
   const cx = size / 2;
   const cy = size / 2;
 
-  const scoreFontSize = size * 0.38;
+  const scoreFontSize = size * 0.28;
 
   return (
     <View style={styles.container}>

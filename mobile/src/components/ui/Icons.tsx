@@ -163,6 +163,19 @@ export function IconClock({ size = 22, color, strokeWidth = 1.8 }: IconProps) {
   );
 }
 
+export function IconExpand({ size = 22, color, strokeWidth = 1.8 }: IconProps) {
+  const theme = useTheme();
+  const c = color ?? theme.text;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polyline points="15,3 21,3 21,9" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Polyline points="9,21 3,21 3,15" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="21" y1="3" x2="14" y2="10" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Line x1="3" y1="21" x2="10" y2="14" stroke={c} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function IconLogout({ size = 22, color, strokeWidth = 1.8 }: IconProps) {
   const theme = useTheme();
   const c = color ?? theme.text;

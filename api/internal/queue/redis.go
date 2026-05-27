@@ -42,6 +42,10 @@ func (q *Queue) Publish(ctx context.Context, job SwingJob) error {
 	return q.client.LPush(ctx, q.queueName, data).Err()
 }
 
+func (q *Queue) Client() *redis.Client {
+	return q.client
+}
+
 func (q *Queue) Close() error {
 	return q.client.Close()
 }

@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   ScrollView,
@@ -15,10 +16,12 @@ import {
   Card,
   IconChevDown,
   IconChevLeft,
+  IconExpand,
   ScoreRing,
   SevDot,
 } from "@/src/components/ui";
 import { apiGet } from "@/src/lib/api";
+import { useSwingEvents } from "@/src/lib/use-swing-events";
 import { API_BASE_URL } from "@/src/lib/config";
 import { getToken } from "@/src/lib/auth";
 import { scoreSeverity, typography, useTheme } from "@/src/lib/theme";
@@ -56,37 +59,46 @@ export default function SwingDetailScreen() {
   const [selectedPhase, setSelectedPhase] = useState(0);
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const aspectAnim = useRef(new Animated.Value(16 / 9)).current;
+
+  const toggleExpand = useCallback(() => {
+    const next = !expanded;
+    setExpanded(next);
+    Animated.spring(aspectAnim, {
+      toValue: next ? 3 / 4 : 16 / 9,
+      useNativeDriver: false,
+      tension: 60,
+      friction: 12,
+    }).start();
+  }, [expanded, aspectAnim]);
 
   useEffect(() => {
     getToken().then(setAuthToken);
   }, []);
 
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        const data = await apiGet<SwingAnalysisResult | { status: string; error_message?: string }>(`/api/swings/${id}`);
-        if ("overall_score" in data) {
-          setResult(data);
-          setStatus("complete");
-          if (pollRef.current) clearInterval(pollRef.current);
-        } else {
-          setStatus(data.status);
-          if (data.status === "failed") {
-            setError(data.error_message || "Analysis failed");
-            if (pollRef.current) clearInterval(pollRef.current);
-          }
+  const fetchSwing = useCallback(async () => {
+    try {
+      const data = await apiGet<SwingAnalysisResult | { status: string; error_message?: string }>(`/api/swings/${id}`);
+      if ("overall_score" in data) {
+        setResult(data);
+        setStatus("complete");
+      } else {
+        setStatus(data.status);
+        if (data.status === "failed") {
+          setError(data.error_message || "Analysis failed");
         }
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Failed to fetch");
-        if (pollRef.current) clearInterval(pollRef.current);
       }
-    };
-
-    poll();
-    pollRef.current = setInterval(poll, 2000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to fetch");
+    }
   }, [id]);
+
+  useEffect(() => { fetchSwing(); }, [fetchSwing]);
+
+  useSwingEvents(useCallback((event) => {
+    if (event.swing_id === id) fetchSwing();
+  }, [id, fetchSwing]));
 
   if (status !== "complete" || !result) {
     return (
@@ -175,21 +187,26 @@ export default function SwingDetailScreen() {
       {/* Phase Frame with Skeleton Overlay */}
       {currentPhase && authToken && (
         <Card padded={false} style={styles.frameCard}>
-          <Image
-            source={{
-              uri: `${API_BASE_URL}/api/swings/${id}/frames/${currentPhase.phase}`,
-              headers: { Authorization: `Bearer ${authToken}` },
-            }}
-            style={styles.frameImage}
-            resizeMode="contain"
-          />
+          <Pressable onPress={toggleExpand}>
+            <Animated.Image
+              source={{
+                uri: `${API_BASE_URL}/api/swings/${id}/frames/${currentPhase.phase}`,
+                headers: { Authorization: `Bearer ${authToken}` },
+              }}
+              style={[styles.frameImage, { aspectRatio: aspectAnim }]}
+              resizeMode="contain"
+            />
+            <View style={styles.expandButton}>
+              <IconExpand size={16} color="#fff" strokeWidth={2} />
+            </View>
+          </Pressable>
           <View style={styles.frameLegend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "rgb(37, 99, 235)" }]} />
+              <View style={[styles.legendDot, { backgroundColor: "rgb(235, 99, 37)" }]} />
               <Text style={[styles.legendText, { color: theme.textMuted }]}>Your form</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "rgb(0, 230, 118)" }]} />
+              <View style={[styles.legendDot, { backgroundColor: "rgb(118, 230, 0)" }]} />
               <Text style={[styles.legendText, { color: theme.textMuted }]}>Pro form</Text>
             </View>
           </View>
@@ -311,7 +328,8 @@ const styles = StyleSheet.create({
   phasePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9999, borderWidth: 0.5 },
   phasePillText: { fontSize: 13, fontWeight: "500", textTransform: "capitalize" },
   frameCard: { overflow: "hidden" },
-  frameImage: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
+  frameImage: { width: "100%", backgroundColor: "#000" },
+  expandButton: { position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
   frameLegend: { flexDirection: "row", gap: 16, padding: 12, justifyContent: "center" },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
