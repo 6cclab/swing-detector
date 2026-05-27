@@ -99,21 +99,8 @@ def detect_phases(
     else:
         top_idx = n // 3
 
-    # 3. Find impact: after top, frame where wrist x returns closest to address position
-    #    and velocity peaks
-    address_wrist_x = np.mean(wrist_pos[: max(address_end, 1), 0])
-    post_top = wrist_pos[top_idx:, 0]
-    if len(post_top) > 0:
-        x_diff = np.abs(post_top - address_wrist_x)
-        # Also weight by velocity (impact has high velocity)
-        post_top_vel = wrist_vel[top_idx:]
-        combined = x_diff - 0.3 * (post_top_vel / (np.max(post_top_vel) + 1e-9))
-        impact_idx = top_idx + int(np.argmin(combined))
-    else:
-        impact_idx = int(n * 0.75)
-
-    # Ensure ordering makes sense
-    impact_idx = max(impact_idx, top_idx + 2)
+    # 3. Find impact: velocity peak after top of backswing
+    impact_idx = max(velocity_peak, top_idx + 2)
 
     # 4. Downswing is between top and impact
     # 5. Backswing is between address_end and top

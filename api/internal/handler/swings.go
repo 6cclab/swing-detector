@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -136,6 +137,12 @@ func (h *SwingHandler) List(c *fiber.Ctx) error {
 
 	var total int64
 	h.db.Model(&models.Swing{}).Where("user_id = ?", userID).Count(&total)
+
+	// Auto-fail swings stuck in pending/processing for over 5 minutes
+	stuckCutoff := time.Now().Add(-5 * time.Minute)
+	h.db.Model(&models.Swing{}).
+		Where("user_id = ? AND status IN ? AND created_at < ?", userID, []string{"pending", "processing"}, stuckCutoff).
+		Updates(map[string]any{"status": "failed", "error_message": "Analysis timed out"})
 
 	var swings []models.Swing
 	h.db.Where("user_id = ?", userID).

@@ -21,8 +21,8 @@ import {
   Sparkline,
 } from "@/src/components/ui";
 import { apiGet, apiDelete } from "@/src/lib/api";
-import { typography, useTheme } from "@/src/lib/theme";
-import type { SwingListResponse } from "@/src/types/swing";
+import { scoreSeverity, typography, useTheme } from "@/src/lib/theme";
+import type { SwingListResponse, SwingSummary } from "@/src/types/swing";
 import type { SwingAnalysisResult } from "@/src/types/analysis";
 
 function fmtDate(d: Date) {
@@ -51,12 +51,17 @@ export default function ProgressScreen() {
     } catch { /* ignore */ }
   }, []);
 
+  const [pendingSwings, setPendingSwings] = useState<SwingSummary[]>([]);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       (async () => {
         try {
           const res = await apiGet<SwingListResponse>("/api/swings?page=1&page_size=20");
+          const pending = res.items.filter(
+            (s) => s.status === "pending" || s.status === "processing"
+          );
           const rows: SwingRow[] = res.items
             .filter((s) => s.status === "complete" && s.overall_score != null)
             .map((s) => ({
@@ -67,7 +72,10 @@ export default function ProgressScreen() {
               club: s.handedness === "right" ? "Right" : "Left",
             }));
 
-          if (!cancelled) setSwings(rows);
+          if (!cancelled) {
+            setSwings(rows);
+            setPendingSwings(pending);
+          }
 
           // Fetch latest analysis for phase scores
           if (rows.length > 0) {
@@ -93,7 +101,7 @@ export default function ProgressScreen() {
     );
   }
 
-  if (swings.length === 0) {
+  if (swings.length === 0 && pendingSwings.length === 0) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: theme.bg }]}>
         <IconProgress size={48} color={theme.textDim} strokeWidth={1.2} />
@@ -104,6 +112,34 @@ export default function ProgressScreen() {
           Complete a few swing analyses to see your trends
         </Text>
       </View>
+    );
+  }
+
+  if (swings.length === 0) {
+    return (
+      <ScrollView
+        style={[styles.screen, { backgroundColor: theme.bg }]}
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.header}>
+          <Text style={[styles.screenTitle, { color: theme.text }]}>Progress</Text>
+        </View>
+        {pendingSwings.length > 0 && (
+          <Card style={styles.pendingCard}>
+            <View style={styles.pendingRow}>
+              <ActivityIndicator size="small" color={theme.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.pendingTitle, { color: theme.text }]}>
+                  {pendingSwings.length === 1 ? "Analyzing your swing..." : `Analyzing ${pendingSwings.length} swings...`}
+                </Text>
+                <Text style={[styles.pendingHint, { color: theme.textMuted }]}>
+                  You'll get a notification when ready
+                </Text>
+              </View>
+            </View>
+          </Card>
+        )}
+      </ScrollView>
     );
   }
 
@@ -174,6 +210,23 @@ export default function ProgressScreen() {
           <Sparkline data={scores} height={56} />
         </View>
       </Card>
+
+      {/* Processing Swings */}
+      {pendingSwings.length > 0 && (
+        <Card style={styles.pendingCard}>
+          <View style={styles.pendingRow}>
+            <ActivityIndicator size="small" color={theme.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.pendingTitle, { color: theme.text }]}>
+                {pendingSwings.length === 1 ? "Analyzing your swing..." : `Analyzing ${pendingSwings.length} swings...`}
+              </Text>
+              <Text style={[styles.pendingHint, { color: theme.textMuted }]}>
+                You'll get a notification when ready
+              </Text>
+            </View>
+          </View>
+        </Card>
+      )}
 
       {/* Phase Bars */}
       {phaseData.length > 0 && (
@@ -267,6 +320,10 @@ const styles = StyleSheet.create({
   swingMeta: { flex: 1, gap: 3 },
   swingLabel: { fontSize: typography.cardTitle, fontWeight: "500" },
   swingDetail: { fontSize: 12 },
+  pendingCard: { gap: 8 },
+  pendingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  pendingTitle: { fontSize: 15, fontWeight: "500" },
+  pendingHint: { fontSize: 12, marginTop: 2 },
   deleteAction: { width: 80, justifyContent: "center", alignItems: "center" },
   deleteText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });
