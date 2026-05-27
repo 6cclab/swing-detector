@@ -103,7 +103,9 @@ def save_phase_frames(swing_id: str, video_path: str, analysis_data: dict, hande
     for phase in phases_detected:
         start = phase["start_frame"]
         end = phase["end_frame"]
-        phase_key_frames[phase["phase"]] = (start + end) // 2
+        mid = (start + end) // 2
+        if mid < len(pose_frames):
+            phase_key_frames[phase["phase"]] = pose_frames[mid]["frame_index"]
 
     rendered = render_key_frames(
         video_path=video_path,

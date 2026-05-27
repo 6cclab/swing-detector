@@ -40,19 +40,9 @@ def analyze_swing(
             "Ensure the golfer is clearly visible in the video."
         )
 
-    # 3. Detect swing phases — use ML model if trained, else rule-based
-    phases = None
-    try:
-        from app.ml.inference import ml_detect_phases
-        phases = ml_detect_phases(pose_frames)
-        if phases:
-            logger.info("Using ML phase classifier")
-    except ImportError:
-        pass
-
-    if phases is None:
-        phases = detect_phases(pose_frames, handedness=handedness)
-        logger.info("Using rule-based phase detector")
+    # 3. Detect swing phases — rule-based detector
+    # ML classifier disabled: produces degenerate results (collapses phases)
+    phases = detect_phases(pose_frames, handedness=handedness)
 
     # 4. For each phase, compute angles, compare to benchmarks, generate feedback
     phase_results: list[SwingPhaseResult] = []
