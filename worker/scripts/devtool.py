@@ -254,7 +254,7 @@ class DevToolHandler(BaseHTTPRequestHandler):
             os.unlink(tmp.name)
 
     def _json(self, data):
-        body = json.dumps(data).encode()
+        body = json.dumps(data, default=lambda o: int(o) if isinstance(o, np.integer) else float(o) if isinstance(o, np.floating) else o).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", len(body))
@@ -619,20 +619,25 @@ function onKey(e) {
     else if (key === 'ArrowLeft') { e.preventDefault(); goToFrame(currentIdx - 1); }
     else if (key === ' ') { e.preventDefault(); togglePlay(); }
     else {
-        const num = parseInt(key);
-        if (num >= 1 && num <= 6) {
-            // Jump to phase within current segment
+        // e.code is "Digit1"-"Digit9" regardless of shift
+        const digitMatch = e.code && e.code.match(/^Digit(\d)$/);
+        if (!digitMatch) return;
+        const num = parseInt(digitMatch[1]);
+
+        if (e.shiftKey) {
+            // Shift+number jumps to segment
+            if (num >= 1 && num <= data.segments.length) {
+                e.preventDefault();
+                goToFrame(data.segments[num - 1].start);
+            }
+        } else {
+            // Number jumps to phase within current segment
             const seg = data.segments.find(s => currentIdx >= s.start && currentIdx <= s.end);
-            if (seg && num <= seg.phases.length) {
+            if (seg && num >= 1 && num <= seg.phases.length) {
                 e.preventDefault();
                 const ph = seg.phases[num - 1];
                 goToFrame(Math.floor((ph.start + ph.end) / 2));
             }
-        }
-        // Shift+number jumps to segment
-        if (e.shiftKey && num >= 1 && num <= data.segments.length) {
-            e.preventDefault();
-            goToFrame(data.segments[num - 1].start);
         }
     }
 }
