@@ -289,10 +289,11 @@ HTML = """<!DOCTYPE html>
 <title>Swing DevTool</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #111; color: #ddd; font-family: -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
-#sidebar { width: 340px; border-right: 1px solid #333; padding: 16px; overflow-y: scroll; flex-shrink: 0; max-height: 100vh; }
-#main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-#frame-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; }
+html, body { height: 100%; }
+body { background: #111; color: #ddd; font-family: -apple-system, sans-serif; display: flex; overflow: hidden; }
+#sidebar { width: 340px; border-right: 1px solid #333; padding: 16px; overflow-y: auto; flex-shrink: 0; min-height: 0; }
+#main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+#frame-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; min-height: 0; overflow: hidden; }
 #frame-img { max-width: 100%; max-height: 100%; object-fit: contain; }
 #frame-overlay { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 8px; font-size: 12px; font-family: monospace; }
 #controls { padding: 12px 16px; border-top: 1px solid #333; background: #1a1a1a; }
