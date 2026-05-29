@@ -16,6 +16,12 @@
       "node": "22.15.0",
       "ios": { "simulator": false }
     },
+    "testflight": {
+      "distribution": "store",
+      "channel": "preview",
+      "node": "22.15.0",
+      "autoIncrement": true
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production",
@@ -24,6 +30,12 @@
     }
   },
   "submit": {
+    "testflight": {
+      "ios": {
+        "appleId": "anpato@proton.me",
+        "appleTeamId": "BX2YF52233"
+      }
+    },
     "production": {
       "ios": {
         "appleId": "anpato@proton.me",
